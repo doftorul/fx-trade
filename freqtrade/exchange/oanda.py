@@ -25,7 +25,8 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(name)s : %(message)s',
 )
 
-class Broker(object):
+#TODO: Adapth this class to Exchange class   
+class Oanda(object):
     """Account"""
     def __init__(self):#, instrument, granularity, units, clargs):
         self.conf = getconfig()
@@ -42,7 +43,8 @@ class Broker(object):
         return endpoint.response
     
     def account_configuration(self, params={}):
-        #TODO think about useful data configs and see http://developer.oanda.com/rest-live-v20/account-ep/
+        # TODO:think about useful data configs and see 
+        # http://developer.oanda.com/rest-live-v20/account-ep/
         endpoint = accounts.AccountConfiguration(self.accountID, params)
         self.client.request(endpoint)
         return endpoint.response
