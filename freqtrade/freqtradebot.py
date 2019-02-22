@@ -23,6 +23,7 @@ from freqtrade.resolvers import ExchangeResolver, StrategyResolver, PairListReso
 from freqtrade.state import State
 from freqtrade.strategy.interface import SellType, IStrategy
 from freqtrade.wallets import Wallets
+from freqtrade.exchange.oanda import Oanda
 
 
 logger = logging.getLogger(__name__)
@@ -55,9 +56,7 @@ class FreqtradeBot(object):
 
         self.rpc: RPCManager = RPCManager(self)
 
-        exchange_name = self.config.get('exchange', {}).get('name', 'bittrex').title()
-        self.exchange = ExchangeResolver(exchange_name, self.config).exchange
-
+        self.exchange = Oanda(self.config)
         self.wallets = Wallets(self.exchange)
         self.dataprovider = DataProvider(self.config, self.exchange)
 

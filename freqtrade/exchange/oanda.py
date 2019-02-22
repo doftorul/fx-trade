@@ -1,5 +1,11 @@
-from libs.config import getconfig
 from tabulate import tabulate
+import arrow
+
+import inspect
+from random import randint
+
+from datetime import datetime
+from math import floor, ceil
 
 from oandapyV20 import API
 from oandapyV20.exceptions import V20Error
@@ -17,44 +23,94 @@ from oandapyV20.contrib.requests import (
 from oandapyV20.contrib.factories import InstrumentsCandlesFactory
 import logging
 from libs.utils import granularity_dict
+from typing import List, Dict, Tuple, Any, Optional
+from pandas import DataFrame
 
 
-logging.basicConfig(
-    filename="agent.log",
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s : %(message)s',
-)
+from freqtrade import constants, OperationalException, DependencyException, TemporaryError
+from freqtrade.data.converter import parse_ticker_dataframe
 
-#TODO: Adapth this class to Exchange class   
+logger = logging.getLogger(__name__)
+
+
 class Oanda(object):
-    """Account"""
-    def __init__(self):#, instrument, granularity, units, clargs):
-        self.conf = getconfig()
-        self.accountID, token = self.conf["conf"]["active_account"], self.conf["conf"]["token"]
-        self.client = API(access_token=token, environment="practice")
+    """
+    This class defines the Oanda API
+    """
 
+    _conf: Dict = {}
+    _params: Dict = {}
+
+    def __init__(self, config: dict) -> None:
+        """
+        Initializes this module with the given config,
+        it does basic validation whether the specified
+        exchange and pairs are valid.
+        :return: None
+        """
+        self._conf.update(config)
+        self.account_id, token = \
+            self._conf["exchange"]["active_account"], \
+            self._conf["exchange"]["token"]
+        env = config.get("environment", "practice")
+        self._api = API(access_token=token, environment=env)
+
+        self._cached_ticker: Dict[str, Any] = {}
+
+        # Holds last candle refreshed time of each pair
+        self._pairs_last_refresh_time: Dict[Tuple[str, str], int] = {}
+
+        # Holds all open sell orders for dry_run
+        self._dry_run_open_orders: Dict[str, Any] = {}
+
+        if config['dry_run']:
+            logger.info('Instance is running with dry_run enabled')
+
+        logger.info('Using Exchange Oanda')
+
+        self.markets = self.account_instruments()
+        self.validate_pairs(config['exchange']['pair_whitelist'])
+
+
+    def validate_pairs(self, pairs: List[str]) -> None:
+        """
+        Checks if all given pairs are tradable on the current exchange.
+        Raises OperationalException if one pair is not available.
+        :param pairs: list of pairs
+        :return: None
+        """
+
+        if not self.markets:
+            logger.warning('Unable to validate pairs (assuming they are correct).')
+        #     return
+
+        for pair in pairs:
+            if self.markets and pair not in self.markets:
+                raise OperationalException(
+                    'Pair {pair} is not available at {self.name}'
+                    'Please remove {pair} from your whitelist.')
 
     def account_changes(self, transaction_id):
         params = {
             'sinceTransactionID' : transaction_id
             }
-        endpoint = accounts.AccountChanges(self.accountID, params)
-        self.client.request(endpoint)
+        endpoint = accounts.AccountChanges(self.account_id, params)
+        self._api.request(endpoint)
         return endpoint.response
     
     def account_configuration(self, params={}):
         # TODO:think about useful data configs and see 
         # http://developer.oanda.com/rest-live-v20/account-ep/
-        endpoint = accounts.AccountConfiguration(self.accountID, params)
-        self.client.request(endpoint)
+        endpoint = accounts.AccountConfiguration(self.account_id, params)
+        self._api.request(endpoint)
         return endpoint.response
     
     def account_details(self):
-        endpoint = accounts.AccountDetails(self.accountID)
-        self.client.request(endpoint)
+        endpoint = accounts.AccountDetails(self.account_id)
+        self._api.request(endpoint)
         return endpoint.response
         
-    def account_instruments(self, only_currency=True):
+    def account_instruments(self, only_currency=True, display=False):
 
         def leverage(margin):
             return str(int(1./float(margin)))+":1"
@@ -62,13 +118,16 @@ class Oanda(object):
         def percentage(margin):
             return str(int(float(margin)*100))+"%"
     
-        endpoint = accounts.AccountInstruments(self.accountID)
-        self.client.request(endpoint)
+
+        endpoint = accounts.AccountInstruments(self.account_id)
+        self._api.request(endpoint)
         _ins = endpoint.response
         _table = []
+        _markets = []
         if only_currency:
             for _in in _ins['instruments']:
                 if _in["type"] == "CURRENCY":
+                    _markets.append(_in["name"])
                     _table.append([_in["displayName"], _in["name"],percentage(_in["marginRate"]), leverage(_in["marginRate"]),_in["type"]])
                     _table = sorted(_table, key = lambda x: x[1])
         else:
@@ -76,23 +135,27 @@ class Oanda(object):
                 _table.append([_in["displayName"], _in["name"],percentage(_in["marginRate"]), leverage(_in["marginRate"]),_in["type"]])
                 _table = sorted(_table, key = lambda x: x[1])
 
-        print(tabulate(_table, headers=['Display name', 'Name', 'Margin rate', 'Leverage', 'type'], tablefmt="pipe"))
-
+        if display:
+            print(tabulate(_table, headers=['Display name', 'Name', 'Margin rate', 'Leverage', 'type'], tablefmt="pipe"))
+        return _markets
 
     def account_list(self):
         endpoint = accounts.AccountList()
-        self.client.request(endpoint)
+        self._api.request(endpoint)
         return endpoint.response
     
     def account_summary(self):
-        endpoint = accounts.AccountSummary(self.accountID)
-        self.client.request(endpoint)
+        endpoint = accounts.AccountSummary(self.account_id)
+        self._api.request(endpoint)
         return endpoint.response
+
+    def get_balance(self):
+        summary = self.account_summary()
+        return summary["account"]["balance"]
 
     """Instrument info"""
     #see http://developer.oanda.com/rest-live-v20/instrument-ep/
-    def instruments_candles(
-        self, instrument, granularity, count, 
+    def get_history(self, instrument: str, granularity:str, count: int = 50, 
         _from=None, _to=None, price="MBA" 
         ):
 
@@ -114,92 +177,91 @@ class Oanda(object):
         """
 
         params = { 
-            "granularity":  granularity if type(granularity)==str else granularity_dict[granularity], 
+            "granularity":  granularity if type(granularity)==str \
+                else granularity_dict[granularity]
             }
 
-        if count:
-            params["count"] = count
-        if price:
-            params['price'] = price
-        if _from:
+        params["count"] = count
+        params['price'] = price
+        
+        if _from and _to:
             params['from'] = _from
-        if _to:
             params['to'] = _to
+            params.pop("count")
 
         candles = []
-        for r in InstrumentsCandlesFactory(instrument=instrument, params=params):
-            rv = self.client.request(r)
-            candles += rv['candles']
+        for req in InstrumentsCandlesFactory(instrument=instrument, params=params):
+            single_req = self._api.request(req)
+            candles += single_req['candles']
         return candles
 
     def instruments_order_book(self, instrument, params={}):
         endpoint = instruments.InstrumentsOrderBook(instrument, params)
-        ob = self.client.request(endpoint)
+        ob = self._api.request(endpoint)
         return ob["orderBook"]["buckets"]
 
     def instruments_position_book(self, instrument, params={}):
         endpoint = instruments.InstrumentsPositionBook(instrument, params)
-        ob = self.client.request(endpoint)
+        ob = self._api.request(endpoint)
         return ob["positionBook"]["buckets"]
 
     """Orders"""
 
-    def create_order(
-        self, instrument, units, stop_loss, 
-        take_profit, comment="", strategy="", other=""
+    def create_order(self, instrument: str, units: int, 
+        stop_loss: float, take_profit: float, comment="", strategy="", other=""
         ):
 
-        clientExtensions = {
+        client_extensions = {
             "comment": comment,
             "tag": strategy,
             "other" : other
             }
 
-        mktOrder = MarketOrderRequest(
+        mkt_order = MarketOrderRequest(
                     instrument=instrument,
                     units=units,
                     takeProfitOnFill=TakeProfitDetails(price=take_profit).data,
                     stopLossOnFill=StopLossDetails(price=stop_loss).data,
-                    tradeClientExtensions=clientExtensions
+                    tradeClientExtensions=client_extensions
                     )
             
-        endpoint = orders.OrderCreate(self.accountID, mktOrder.data)
-        t = self.client.request(endpoint)
-        trade_id = t["orderFillTransaction"]["tradeOpened"]["tradeID"]
-        batch_id = t["orderCreateTransaction"]["batchID"]
-        return trade_id, batch_id
+        endpoint = orders.OrderCreate(self.account_id, mkt_order.data)
+        order_created = self._api.request(endpoint)
+        #trade_id = order_created["orderFillTransaction"]["tradeOpened"]["tradeID"]
+        #batch_id = order_created["orderCreateTransaction"]["batchID"]
+        return order_created
 
     def list_orders(self):
-        endpoint = orders.OrderList(self.accountID)
-        self.client.request(endpoint)
+        endpoint = orders.OrderList(self.account_id)
+        self._api.request(endpoint)
         return endpoint.response
 
 
-    def cancel_order(self, orderID):
-        endpoint = orders.OrderCancel(self.accountID, orderID)
-        self.client.request(endpoint)
+    def cancel_order(self, order_id):
+        endpoint = orders.OrderCancel(self.account_id, order_id)
+        self._api.request(endpoint)
         return endpoint.response
 
     """Positions"""
 
     def open_positions(self):
-        endpoint = positions.OpenPositions(self.accountID)
-        op = self.client.request(endpoint)
+        endpoint = positions.OpenPositions(self.account_id)
+        op = self._api.request(endpoint)
         return op["positions"]
 
     def list_positions(self):                
-        endpoint = positions.PositionList(self.accountID)
-        op = self.client.request(endpoint)
+        endpoint = positions.PositionList(self.account_id)
+        op = self._api.request(endpoint)
         return op["positions"]
         
     def close_position(self, instrument, data={"longUnits": "ALL"}):
-        endpoint = positions.PositionClose(self.accountID, instrument, data)
-        self.client.request(endpoint)
+        endpoint = positions.PositionClose(self.account_id, instrument, data)
+        self._api.request(endpoint)
         return endpoint.response
 
     def position_details(self, instrument):
-        endpoint = positions.PositionDetails(self.accountID, instrument)
-        self.client.request(endpoint)
+        endpoint = positions.PositionDetails(self.account_id, instrument)
+        self._api.request(endpoint)
         return endpoint.response
 
 
@@ -234,8 +296,8 @@ class Oanda(object):
                 "instruments" : instruments
             }  
 
-        endpoint = pricing.PricingInfo(self.accountID, params)
-        p = self.client.request(endpoint)
+        endpoint = pricing.PricingInfo(self.account_id, params)
+        p = self._api.request(endpoint)
         return p["prices"]
 
 
@@ -255,12 +317,12 @@ class Oanda(object):
             "other" : other
             }
 
-        pass
-
     def trade_close(self, trade_id, units=None):
         data = {}
         if units:
-            data = {"units" : units}
+            data = {
+                "units" : units
+                }
 
     def trade_details(self, trade_id):
         pass

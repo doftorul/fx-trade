@@ -8,6 +8,8 @@ from freqtrade.strategy.default_strategy import DefaultStrategy  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
+#https://www.freqtrade.io/en/latest/configuration/#parameters-in-strategy
+
 
 def import_strategy(strategy: IStrategy, config: dict) -> IStrategy:
     """

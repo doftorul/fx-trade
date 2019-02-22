@@ -3,9 +3,19 @@
     "stake_currency": "BTC",
     "stake_amount": 0.05,
     "fiat_display_currency": "USD",
-    "ticker_interval" : "5m",
+    "amount_reserve_percent" : 0.05,
     "dry_run": false,
+    "ticker_interval": "5m",
     "trailing_stop": false,
+    "trailing_stop_positive": 0.005,
+    "trailing_stop_positive_offset": 0.0051,
+    "minimal_roi": {
+        "40":  0.0,
+        "30":  0.01,
+        "20":  0.02,
+        "0":  0.04
+    },
+    "stoploss": -0.10,
     "unfilledtimeout": {
         "buy": 10,
         "sell": 30
@@ -24,13 +34,32 @@
         "order_book_min": 1,
         "order_book_max": 9
     },
+    "order_types": {
+        "buy": "limit",
+        "sell": "limit",
+        "stoploss": "market",
+        "stoploss_on_exchange": "false",
+        "stoploss_on_exchange_interval": 60
+    },
+    "order_time_in_force": {
+        "buy": "gtc",
+        "sell": "gtc",
+    },
+    "pairlist": {
+        "method": "VolumePairList",
+        "config": {
+            "number_assets": 20,
+            "sort_key": "quoteVolume"
+        }
+    },
     "exchange": {
         "name": "bittrex",
         "key": "your_exchange_key",
         "secret": "your_exchange_secret",
         "ccxt_config": {"enableRateLimit": true},
         "ccxt_async_config": {
-            "enableRateLimit": false
+            "enableRateLimit": false,
+            "aiohttp_trust_env": false
         },
         "pair_whitelist": [
             "ETH/BTC",
@@ -46,12 +75,8 @@
         ],
         "pair_blacklist": [
             "DOGE/BTC"
-        ]
-    },
-    "experimental": {
-        "use_sell_signal": false,
-        "sell_profit_only": false,
-        "ignore_roi_if_buy_signal": false
+        ],
+        "outdated_offset": 5
     },
     "edge": {
         "enabled": false,
@@ -68,14 +93,22 @@
         "max_trade_duration_minute": 1440,
         "remove_pumps": false
     },
+    "experimental": {
+        "use_sell_signal": false,
+        "sell_profit_only": false,
+        "ignore_roi_if_buy_signal": false
+    },
     "telegram": {
         "enabled": true,
         "token": "your_telegram_token",
         "chat_id": "your_telegram_chat_id"
     },
+    "db_url": "sqlite:///tradesv3.sqlite",
     "initial_state": "running",
     "forcebuy_enable": false,
     "internals": {
         "process_throttle_secs": 5
-    }
+    },
+    "strategy": "DefaultStrategy",
+    "strategy_path": "/some/folder/"
 }

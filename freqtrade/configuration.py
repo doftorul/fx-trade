@@ -7,7 +7,6 @@ import os
 from argparse import Namespace
 from typing import Any, Dict, Optional
 
-import ccxt
 from jsonschema import Draft4Validator, validate
 from jsonschema.exceptions import ValidationError, best_match
 
@@ -24,8 +23,6 @@ def set_loggers(log_level: int = 0) -> None:
 
     logging.getLogger('requests').setLevel(logging.INFO if log_level <= 1 else logging.DEBUG)
     logging.getLogger("urllib3").setLevel(logging.INFO if log_level <= 1 else logging.DEBUG)
-    logging.getLogger('ccxt.base.exchange').setLevel(
-        logging.INFO if log_level <= 2 else logging.DEBUG)
     logging.getLogger('telegram').setLevel(logging.INFO)
 
 
@@ -152,9 +149,6 @@ class Configuration(object):
             config['max_open_trades'] = float('inf')
 
         logger.info(f'Using DB: "{config["db_url"]}"')
-
-        # Check if the exchange set by the user is supported
-        self.check_exchange(config)
 
         return config
 
@@ -308,27 +302,3 @@ class Configuration(object):
             self.config = self.load_config()
 
         return self.config
-
-    def check_exchange(self, config: Dict[str, Any]) -> bool:
-        """
-        Check if the exchange name in the config file is supported by Freqtrade
-        :return: True or raised an exception if the exchange if not supported
-        """
-        exchange = config.get('exchange', {}).get('name').lower()
-        if exchange not in ccxt.exchanges:
-
-            exception_msg = f'Exchange "{exchange}" not supported.\n' \
-                            f'The following exchanges are supported: {", ".join(ccxt.exchanges)}'
-
-            logger.critical(exception_msg)
-            raise OperationalException(
-                exception_msg
-            )
-        # Depreciation warning
-        if 'ccxt_rate_limit' in config.get('exchange', {}):
-            logger.warning("`ccxt_rate_limit` has been deprecated in favor of "
-                           "`ccxt_config` and `ccxt_async_config` and will be removed "
-                           "in a future version.")
-
-        logger.debug('Exchange "%s" supported', exchange)
-        return True

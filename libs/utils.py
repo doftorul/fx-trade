@@ -1,4 +1,4 @@
-granularity_dict = {
+GRANULARITIES = {
     5       : "S5", 
     10      : "S10",	
     15      : "S15",	
