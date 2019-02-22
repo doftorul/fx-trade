@@ -25,6 +25,7 @@ from freqtrade.strategy.interface import SellType, IStrategy
 from freqtrade.wallets import Wallets
 from freqtrade.exchange.oanda import Oanda
 
+from libs.factory import DataFactory
 
 logger = logging.getLogger(__name__)
 
@@ -57,18 +58,22 @@ class FreqtradeBot(object):
         self.rpc: RPCManager = RPCManager(self)
 
         self.exchange = Oanda(self.config)
+
+        #TODO: ADJUST WALLET CLASS
         self.wallets = Wallets(self.exchange)
-        self.dataprovider = DataProvider(self.config, self.exchange)
+        self.dataprovider = DataFactory(self.config)
 
         # Attach Dataprovider to Strategy baseclass
         IStrategy.dp = self.dataprovider
         # Attach Wallets to Strategy baseclass
         IStrategy.wallets = self.wallets
 
+        #TODO: ADJUST IPairList
         pairlistname = self.config.get('pairlist', {}).get('method', 'StaticPairList')
         self.pairlists = PairListResolver(pairlistname, self, self.config).pairlist
 
         # Initializing Edge only if enabled
+        # TODO: EDGE COMBINED WITH PORTFOLIO MANAGEMENT STRATEGIES FOR FOREX
         self.edge = Edge(self.config, self.exchange, self.strategy) if \
             self.config.get('edge', {}).get('enabled', False) else None
 
@@ -321,7 +326,8 @@ class FreqtradeBot(object):
         # running get_signal on historical data fetched
         for _pair in whitelist:
             (buy, sell) = self.strategy.get_signal(
-                _pair, interval, self.dataprovider.ohlcv(_pair, self.strategy.ticker_interval))
+                _pair, interval, self.dataprovider(_pair, self.strategy.ticker_interval)) #here should add counts as well
+                
 
             if buy and not sell:
                 stake_amount = self._get_trade_stake_amount(_pair)

@@ -16,6 +16,7 @@ class Wallet(NamedTuple):
     total: float = 0
 
 
+# TODO: ADJUST THIS CLASS TO HANDLE WALLET OF OANDA INSTEAD OF CRYPTOCURRENCY
 class Wallets(object):
 
     def __init__(self, exchange: Exchange) -> None:

@@ -20,9 +20,10 @@ class DataFactory(object):
         _from=None, _to=None, price="MBA" 
         ):
 
-        #granularity input is given as a number  [seconds] 
-        #or as a string following libs.utils.granularity_dict values
         """
+        granularity input is given as a number  [seconds] 
+        or as a string following libs.utils.granularity_dict values
+        
         Returns a list of candles, each candle is a dictionary:
             {
                 'complete': True, 
