@@ -12,6 +12,7 @@ from oandapyV20.exceptions import V20Error
 import oandapyV20.endpoints.instruments as instruments
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.orders as orders
+import oandapyV20.endpoints.forexlabs as forexlabs
 import oandapyV20.endpoints.positions as positions
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.accounts as accounts
@@ -181,7 +182,7 @@ class Oanda(object):
                 else granularity_dict[granularity]
             }
 
-        params["count"] = count
+        params['count'] = count
         params['price'] = price
         
         if _from and _to:

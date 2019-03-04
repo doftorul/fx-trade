@@ -16,7 +16,7 @@ from freqtrade import (DependencyException, OperationalException,
                        TemporaryError, __version__, constants, persistence)
 from freqtrade.data.converter import order_book_to_dataframe
 from freqtrade.data.dataprovider import DataProvider
-from freqtrade.edge import Edge
+from freqtrade.edge import Edge, Portfolio
 from freqtrade.persistence import Trade
 from freqtrade.rpc import RPCManager, RPCMessageType
 from freqtrade.resolvers import ExchangeResolver, StrategyResolver, PairListResolver
@@ -24,7 +24,7 @@ from freqtrade.state import State
 from freqtrade.strategy.interface import SellType, IStrategy
 from freqtrade.wallets import Wallets
 from freqtrade.exchange.oanda import Oanda
-
+from multiprocessing import Process
 from libs.factory import DataFactory
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ class FreqtradeBot(object):
 
         # Init objects
         self.config = config
+        #this should be a class that is initialised
         self.strategy: IStrategy = StrategyResolver(self.config).strategy
 
         self.rpc: RPCManager = RPCManager(self)
@@ -61,33 +62,21 @@ class FreqtradeBot(object):
 
         #TODO: ADJUST WALLET CLASS
         self.wallets = Wallets(self.exchange)
-        self.dataprovider = DataFactory(self.config)
+        self.dataprovider = self.exchange.get_history
 
         # Attach Dataprovider to Strategy baseclass
-        IStrategy.dp = self.dataprovider
+        # IStrategy.dp = self.dataprovider
         # Attach Wallets to Strategy baseclass
-        IStrategy.wallets = self.wallets
+        # IStrategy.wallets = self.wallets
 
-        #TODO: ADJUST IPairList
-        pairlistname = self.config.get('pairlist', {}).get('method', 'StaticPairList')
-        self.pairlists = PairListResolver(pairlistname, self, self.config).pairlist
+        self.pairlists = self.config.get('exchange').get('pair_whitelist', [])
+        self.strategies = [self.strategy(instrument=ins) for ins in self.pairlists]
 
         # Initializing Edge only if enabled
         # TODO: EDGE COMBINED WITH PORTFOLIO MANAGEMENT STRATEGIES FOR FOREX
-        self.edge = Edge(self.config, self.exchange, self.strategy) if \
+
+        self.portfolio = Portfolio(self.config, self.exchange, self.strategy) if \
             self.config.get('edge', {}).get('enabled', False) else None
-
-        self.active_pair_whitelist: List[str] = self.config['exchange']['pair_whitelist']
-        self._init_modules()
-
-    def _init_modules(self) -> None:
-        """
-        Initializes all modules and updates the config
-        :return: None
-        """
-        # Initialize all modules
-
-        persistence.init(self.config)
 
         # Set initial application state
         initial_state = self.config.get('initial_state')
@@ -96,6 +85,7 @@ class FreqtradeBot(object):
             self.state = State[initial_state.upper()]
         else:
             self.state = State.STOPPED
+
 
     def cleanup(self) -> None:
         """
@@ -106,7 +96,7 @@ class FreqtradeBot(object):
         self.rpc.cleanup()
         persistence.cleanup()
 
-    def worker(self, old_state: State = None) -> State:
+    def worker(self, old_state: State = None, idle: int = constants.PROCESS_THROTTLE_SECS) -> State:
         """
         Trading routine that must be run at each loop
         :param old_state: the previous service state from the previous call
@@ -126,47 +116,41 @@ class FreqtradeBot(object):
         if state == State.STOPPED:
             time.sleep(1)
         elif state == State.RUNNING:
-            min_secs = self.config.get('internals', {}).get(
-                'process_throttle_secs',
-                constants.PROCESS_THROTTLE_SECS
-            )
 
-            self._throttle(func=self._process,
-                           min_secs=min_secs)
+            jobs = []
+            for instrument, strategy in zip(self.pairlists, self.strategies):
+                p = Process(target=self._process,args=(instrument, strategy))
+                jobs.append(p)
+                p.start()
+
+            for p in jobs:
+                p.join()
+
         return state
 
-    def _throttle(self, func: Callable[..., Any], min_secs: float, *args, **kwargs) -> Any:
-        """
-        Throttles the given callable that it
-        takes at least `min_secs` to finish execution.
-        :param func: Any callable
-        :param min_secs: minimum execution time in seconds
-        :return: Any
-        """
-        start = time.time()
-        result = func(*args, **kwargs)
-        end = time.time()
-        duration = max(min_secs - (end - start), 0.0)
-        logger.debug('Throttling %s for %.2f seconds', func.__name__, duration)
-        time.sleep(duration)
-        return result
+    
 
-    def _process(self) -> bool:
+    def _process(self, instrument, strategy) -> bool:
         """
         Queries the persistence layer for open trades and handles them,
         otherwise a new trade is created.
         :return: True if one or more trades has been created or closed, False otherwise
         """
         state_changed = False
-        try:
-            # Refresh whitelist
-            self.pairlists.refresh_pairlist()
-            self.active_pair_whitelist = self.pairlists.whitelist
 
+        self.portfolio.update()
+
+        while True:
             # Calculating Edge positiong
-            if self.edge:
-                self.edge.calculate()
-                self.active_pair_whitelist = self.edge.adjust(self.active_pair_whitelist)
+            funds_to_commit = self.portfolio.process(instrument)
+
+            while True:
+                oanda_data = get_latest_oanda_data(instrument, 'M1', 300)  # many data-points to increase EMA and such accuracy
+                current_complete_candle_stamp = oanda_data[-1]['time']
+                if current_complete_candle_stamp != last_complete_candle_stamp:  # if new candle is complete
+                    break
+                time.sleep(5)
+            last_complete_candle_stamp = current_complete_candle_stamp
 
             # Query trades from persistence layer
             trades = Trade.query.filter(Trade.is_open.is_(True)).all()

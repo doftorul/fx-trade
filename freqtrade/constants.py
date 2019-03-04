@@ -4,7 +4,7 @@
 bot constants
 """
 DYNAMIC_WHITELIST = 20  # pairs
-PROCESS_THROTTLE_SECS = 5  # sec
+PROCESS_THROTTLE_SECS = 30  # sec
 TICKER_INTERVAL = 5  # min
 HYPEROPT_EPOCH = 100  # epochs
 RETRY_TIMEOUT = 30  # sec
