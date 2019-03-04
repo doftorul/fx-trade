@@ -144,3 +144,6 @@ __pycache__/
 *.so
 
 libs/.settings.conf
+
+#others
+Trading-Bot/
