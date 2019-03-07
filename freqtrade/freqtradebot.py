@@ -15,16 +15,12 @@ from requests.exceptions import RequestException
 from freqtrade import (DependencyException, OperationalException,
                        TemporaryError, __version__, constants, persistence)
 from freqtrade.data.converter import order_book_to_dataframe
-from freqtrade.data.dataprovider import DataProvider
-from freqtrade.edge import Edge, Portfolio
-from freqtrade.persistence import Trade
 from freqtrade.rpc import RPCManager, RPCMessageType
-from freqtrade.resolvers import ExchangeResolver, StrategyResolver, PairListResolver
 from freqtrade.state import State
-from freqtrade.strategy.interface import SellType, IStrategy
+from freqtrade.strategy.interface import retrieve_strategy
 from freqtrade.wallets import Wallets
 from freqtrade.exchange.oanda import Oanda
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 from libs.factory import DataFactory
 
 logger = logging.getLogger(__name__)
@@ -54,7 +50,8 @@ class FreqtradeBot(object):
         # Init objects
         self.config = config
         #this should be a class that is initialised
-        self.strategy: IStrategy = StrategyResolver(self.config).strategy
+        self.strategy = retrieve_strategy(self.config["strategy"]["name"])
+        self.strategy_params = self.config["strategy"]["params"]
 
         self.rpc: RPCManager = RPCManager(self)
 
@@ -70,8 +67,14 @@ class FreqtradeBot(object):
         # IStrategy.wallets = self.wallets
 
         self.pairlists = self.config.get('exchange').get('pair_whitelist', [])
-        self.strategies = [self.strategy(instrument=ins) for ins in self.pairlists]
-
+        self.pairlists = [Instrument(pair, "") for pair in self.pairlists]
+        self.strategies = [
+            self.strategy(
+                api=self.exchange, 
+                instrument=pair, 
+                kwargs=self.strategy_params) for pair in self.pairlists
+            ]
+        
         # Initializing Edge only if enabled
         # TODO: EDGE COMBINED WITH PORTFOLIO MANAGEMENT STRATEGIES FOR FOREX
 
@@ -116,15 +119,23 @@ class FreqtradeBot(object):
         if state == State.STOPPED:
             time.sleep(1)
         elif state == State.RUNNING:
-
+            """
             jobs = []
             for instrument, strategy in zip(self.pairlists, self.strategies):
                 p = Process(target=self._process,args=(instrument, strategy))
                 jobs.append(p)
-                p.start()
-
-            for p in jobs:
-                p.join()
+            
+            for job in jobs:
+                job.start()
+            
+            for job in jobs:
+                job.join()
+            """
+            pool = Pool(processes=len(self.pairlists))
+            input_tuple = list(zip(self.pairlists, self.strategies))
+            self.pairlists = pool.starmap(self._process, input_tuple)
+            pool.close()
+            pool.join()
 
         return state
 
@@ -132,249 +143,39 @@ class FreqtradeBot(object):
 
     def _process(self, instrument, strategy) -> bool:
         """
-        Queries the persistence layer for open trades and handles them,
-        otherwise a new trade is created.
-        :return: True if one or more trades has been created or closed, False otherwise
+        This is a trade iteration. It checks for new candles every 5 seconds, then performs
+        an action. 
         """
         state_changed = False
 
         self.portfolio.update()
 
-        while True:
-            # Calculating Edge positiong
-            funds_to_commit = self.portfolio.process(instrument)
-
+        try:
             while True:
-                oanda_data = get_latest_oanda_data(instrument, 'M1', 300)  # many data-points to increase EMA and such accuracy
+                #strategy.retrieve(instrument) #retrieve data for instrument
+                #strategy.idle() #check if the time is updated (this includes a while loop, so remove the outer loop)
+                #
+                oanda_data = self.dataprovider(instrument.name, 'M1', count=300)  # many data-points to increase EMA and such accuracy
                 current_complete_candle_stamp = oanda_data[-1]['time']
-                if current_complete_candle_stamp != last_complete_candle_stamp:  # if new candle is complete
+                if current_complete_candle_stamp != instrument.latest_time:  # if new candle is complete
                     break
                 time.sleep(5)
-            last_complete_candle_stamp = current_complete_candle_stamp
-
-            # Query trades from persistence layer
-            trades = Trade.query.filter(Trade.is_open.is_(True)).all()
-
-            # Extend active-pair whitelist with pairs from open trades
-            # ensures that tickers are downloaded for open trades
-            self.active_pair_whitelist.extend([trade.pair for trade in trades
-                                               if trade.pair not in self.active_pair_whitelist])
-
-            # Create pair-whitelist tuple with (pair, ticker_interval)
-            pair_whitelist_tuple = [(pair, self.config['ticker_interval'])
-                                    for pair in self.active_pair_whitelist]
-            # Refreshing candles
-            self.dataprovider.refresh(pair_whitelist_tuple,
-                                      self.strategy.informative_pairs())
-
-            # First process current opened trades
-            for trade in trades:
-                state_changed |= self.process_maybe_execute_sell(trade)
-
-            # Then looking for buy opportunities
-            if len(trades) < self.config['max_open_trades']:
-                state_changed = self.process_maybe_execute_buy()
-
-            if 'unfilledtimeout' in self.config:
-                # Check and handle any timed out open orders
-                self.check_handle_timedout()
-                Trade.session.flush()
-
+            instrument.time = current_complete_candle_stamp
         except TemporaryError as error:
             logger.warning(f"Error: {error}, retrying in {constants.RETRY_TIMEOUT} seconds...")
             time.sleep(constants.RETRY_TIMEOUT)
         except OperationalException:
             tb = traceback.format_exc()
             hint = 'Issue `/start` if you think it is safe to restart.'
-            self.rpc.send_msg({
-                'type': RPCMessageType.STATUS_NOTIFICATION,
-                'status': f'OperationalException:\n```\n{tb}```{hint}'
-            })
+            #self.rpc.send_msg({
+            #    'type': RPCMessageType.STATUS_NOTIFICATION,
+            #    'status': f'OperationalException:\n```\n{tb}```{hint}'
+            #})
             logger.exception('OperationalException. Stopping trader ...')
             self.state = State.STOPPED
         return state_changed
 
-    def get_target_bid(self, pair: str) -> float:
-        """
-        Calculates bid target between current ask price and last price
-        :return: float: Price
-        """
-        config_bid_strategy = self.config.get('bid_strategy', {})
-        if 'use_order_book' in config_bid_strategy and\
-                config_bid_strategy.get('use_order_book', False):
-            logger.info('Getting price from order book')
-            order_book_top = config_bid_strategy.get('order_book_top', 1)
-            order_book = self.exchange.get_order_book(pair, order_book_top)
-            logger.debug('order_book %s', order_book)
-            # top 1 = index 0
-            order_book_rate = order_book['bids'][order_book_top - 1][0]
-            logger.info('...top %s order book buy rate %0.8f', order_book_top, order_book_rate)
-            used_rate = order_book_rate
-        else:
-            logger.info('Using Last Ask / Last Price')
-            ticker = self.exchange.get_ticker(pair)
-            if ticker['ask'] < ticker['last']:
-                ticker_rate = ticker['ask']
-            else:
-                balance = self.config['bid_strategy']['ask_last_balance']
-                ticker_rate = ticker['ask'] + balance * (ticker['last'] - ticker['ask'])
-            used_rate = ticker_rate
-
-        return used_rate
-
-    def _get_trade_stake_amount(self, pair) -> Optional[float]:
-        """
-        Check if stake amount can be fulfilled with the available balance
-        for the stake currency
-        :return: float: Stake Amount
-        """
-        if self.edge:
-            return self.edge.stake_amount(
-                pair,
-                self.wallets.get_free(self.config['stake_currency']),
-                self.wallets.get_total(self.config['stake_currency']),
-                Trade.total_open_trades_stakes()
-            )
-        else:
-            stake_amount = self.config['stake_amount']
-
-        avaliable_amount = self.wallets.get_free(self.config['stake_currency'])
-
-        if stake_amount == constants.UNLIMITED_STAKE_AMOUNT:
-            open_trades = len(Trade.query.filter(Trade.is_open.is_(True)).all())
-            if open_trades >= self.config['max_open_trades']:
-                logger.warning('Can\'t open a new trade: max number of trades is reached')
-                return None
-            return avaliable_amount / (self.config['max_open_trades'] - open_trades)
-
-        # Check if stake_amount is fulfilled
-        if avaliable_amount < stake_amount:
-            raise DependencyException(
-                f"Available balance({avaliable_amount} {self.config['stake_currency']}) is "
-                f"lower than stake amount({stake_amount} {self.config['stake_currency']})"
-            )
-
-        return stake_amount
-
-    def _get_min_pair_stake_amount(self, pair: str, price: float) -> Optional[float]:
-        markets = self.exchange.get_markets()
-        markets = [m for m in markets if m['symbol'] == pair]
-        if not markets:
-            raise ValueError(f'Can\'t get market information for symbol {pair}')
-
-        market = markets[0]
-
-        if 'limits' not in market:
-            return None
-
-        min_stake_amounts = []
-        limits = market['limits']
-        if ('cost' in limits and 'min' in limits['cost']
-                and limits['cost']['min'] is not None):
-            min_stake_amounts.append(limits['cost']['min'])
-
-        if ('amount' in limits and 'min' in limits['amount']
-                and limits['amount']['min'] is not None):
-            min_stake_amounts.append(limits['amount']['min'] * price)
-
-        if not min_stake_amounts:
-            return None
-
-        # reserve some percent defined in config (5% default) + stoploss
-        amount_reserve_percent = 1.0 - self.config.get('amount_reserve_percent',
-                                                       constants.DEFAULT_AMOUNT_RESERVE_PERCENT)
-        if self.strategy.stoploss is not None:
-            amount_reserve_percent += self.strategy.stoploss
-        # it should not be more than 50%
-        amount_reserve_percent = max(amount_reserve_percent, 0.5)
-        return min(min_stake_amounts) / amount_reserve_percent
-
-    def create_trade(self) -> bool:
-        """
-        Checks the implemented trading indicator(s) for a randomly picked pair,
-        if one pair triggers the buy_signal a new trade record gets created
-        :return: True if a trade object has been created and persisted, False otherwise
-        """
-        interval = self.strategy.ticker_interval
-        whitelist = copy.deepcopy(self.active_pair_whitelist)
-
-        # Remove currently opened and latest pairs from whitelist
-        for trade in Trade.query.filter(Trade.is_open.is_(True)).all():
-            if trade.pair in whitelist:
-                whitelist.remove(trade.pair)
-                logger.debug('Ignoring %s in pair whitelist', trade.pair)
-
-        if not whitelist:
-            raise DependencyException('No currency pairs in whitelist')
-
-        # running get_signal on historical data fetched
-        for _pair in whitelist:
-            (buy, sell) = self.strategy.get_signal(
-                _pair, interval, self.dataprovider(_pair, self.strategy.ticker_interval)) #here should add counts as well
-                
-
-            if buy and not sell:
-                stake_amount = self._get_trade_stake_amount(_pair)
-                if not stake_amount:
-                    return False
-
-                logger.info(f"Buy signal found: about create a new trade with stake_amount: "
-                            f"{stake_amount} ...")
-
-                bidstrat_check_depth_of_market = self.config.get('bid_strategy', {}).\
-                    get('check_depth_of_market', {})
-                if (bidstrat_check_depth_of_market.get('enabled', False)) and\
-                        (bidstrat_check_depth_of_market.get('bids_to_ask_delta', 0) > 0):
-                    if self._check_depth_of_market_buy(_pair, bidstrat_check_depth_of_market):
-                        return self.execute_buy(_pair, stake_amount)
-                    else:
-                        return False
-                return self.execute_buy(_pair, stake_amount)
-
-        return False
-
-    def _check_depth_of_market_buy(self, pair: str, conf: Dict) -> bool:
-        """
-        Checks depth of market before executing a buy
-        """
-        conf_bids_to_ask_delta = conf.get('bids_to_ask_delta', 0)
-        logger.info('checking depth of market for %s', pair)
-        order_book = self.exchange.get_order_book(pair, 1000)
-        order_book_data_frame = order_book_to_dataframe(order_book['bids'], order_book['asks'])
-        order_book_bids = order_book_data_frame['b_size'].sum()
-        order_book_asks = order_book_data_frame['a_size'].sum()
-        bids_ask_delta = order_book_bids / order_book_asks
-        logger.info('bids: %s, asks: %s, delta: %s', order_book_bids,
-                    order_book_asks, bids_ask_delta)
-        if bids_ask_delta >= conf_bids_to_ask_delta:
-            return True
-        return False
-
-    def execute_buy(self, pair: str, stake_amount: float, price: Optional[float] = None) -> bool:
-        """
-        Executes a limit buy for the given pair
-        :param pair: pair for which we want to create a LIMIT_BUY
-        :return: None
-        """
-        pair_s = pair.replace('_', '/')
-        pair_url = self.exchange.get_pair_detail_url(pair)
-        stake_currency = self.config['stake_currency']
-        fiat_currency = self.config.get('fiat_display_currency', None)
-        time_in_force = self.strategy.order_time_in_force['buy']
-
-        if price:
-            buy_limit_requested = price
-        else:
-            # Calculate amount
-            buy_limit_requested = self.get_target_bid(pair)
-
-        min_stake_amount = self._get_min_pair_stake_amount(pair_s, buy_limit_requested)
-        if min_stake_amount is not None and min_stake_amount > stake_amount:
-            logger.warning(
-                f'Can\'t open a new trade for {pair_s}: stake amount '
-                f'is too small ({stake_amount} < {min_stake_amount})'
-            )
-            return False
+    
 
         amount = stake_amount / buy_limit_requested
 

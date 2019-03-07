@@ -194,7 +194,9 @@ class Oanda(object):
         for req in InstrumentsCandlesFactory(instrument=instrument, params=params):
             single_req = self._api.request(req)
             candles += single_req['candles']
-        return candles
+        
+        return candles[1:] if candles[-1]["complete"] \
+            else candles[:-1]
 
     def instruments_order_book(self, instrument, params={}):
         endpoint = instruments.InstrumentsOrderBook(instrument, params)

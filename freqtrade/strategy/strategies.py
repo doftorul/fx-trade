@@ -1,5 +1,6 @@
 import random
 import numpy as np
+from abc import ABC, abstractmethod
 
 
 """
@@ -18,10 +19,19 @@ Investopedia https://www.investopedia.com/articles/active-trading/081315/how-cod
 Follow us: Investopedia on Facebook
 """
 
-class Strategy(object):
+class Strategy(ABC):
     def __init__(self, api, instrument, **kwargs):
         self.api = api
         self.instrument = instrument
+
+    @abstractmethod
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+
+    @abstractmethod
+    def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+
+    @abstractmethod
+    def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
     def retrieve_data(self, granularity, count, price="MBA"):
         return self.api.instruments_candles(self.instrument, granularity, count, price="MBA")
@@ -47,7 +57,7 @@ class Strategy(object):
         return opens, closes, highs, lows#,timestamps, volumes
 
 class Random(Strategy):
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(Random, self).__init__(**kwargs)
 
     def action(self, candles):
@@ -58,7 +68,7 @@ class Random(Strategy):
         elif dice < 2./3:
             return 'sell'
         else:
-            return None
+            return 'hold'
 
 class MACD(Strategy):
     def __init__(self, *args, **kwargs):
