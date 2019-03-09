@@ -15,6 +15,16 @@ class Wallet(NamedTuple):
     used: float = 0
     total: float = 0
 
+class Portfolio(object):
+    def __init__(self, api, pairlists):
+        self.pairlists = pairlists
+    
+    def update(self):
+        funds = []
+        for _ in self.pairlists:
+            funds.append(1000)
+        return funds
+
 
 # TODO: ADJUST THIS CLASS TO HANDLE WALLET OF OANDA INSTEAD OF CRYPTOCURRENCY
 class Wallets(object):

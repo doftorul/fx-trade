@@ -22,19 +22,45 @@ Follow us: Investopedia on Facebook
 class Strategy(ABC):
     def __init__(self, api, instrument, **kwargs):
         self.api = api
-        self.instrument = instrument
+        self.idle_time() = kwargs.get("idle_time", 5)
+        #self.instrument = instrument
 
-    @abstractmethod
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-
-    @abstractmethod
-    def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-
-    @abstractmethod
-    def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-
+    
     def retrieve_data(self, granularity, count, price="MBA"):
-        return self.api.instruments_candles(self.instrument, granularity, count, price="MBA")
+        return self.api.get_history(
+            self.instrument, 
+            granularity, 
+            count, 
+            price="MBA"
+            )
+   
+
+
+    @abstractmethod
+    def collect(self):
+        """
+        This collects candles for the particular strategy
+        """
+
+    @abstractmethod
+    def action(self, candles)
+        
+
+
+    def idle(self, instrument):
+        # candles = self.retrieve_data(300, 48)
+        while True:
+            candles = self.collect()
+            current_time = candles[-1]['time']
+            if current_time != instrument.time:
+                break
+            time.sleep()
+
+        order_signal = self.action(candles)
+
+        # order_signal should be 1 [buy] , -1 [sell], 0 [hold]
+
+        return current_time, order_signal
 
     def extract_prices(self, candles, price_type='mid'):
         price_type = price_type.capitalize()
@@ -95,10 +121,7 @@ class MACD(Strategy):
 
         return fast_ma, slow_ma
 
-    def action(self):
-
-        candles = self.retrieve_data(300, 48) 
-
+    def action(self, candles):
         fma_ask, sma_ask = self.construct_ma(candles, price_type='ask')
         fma_bid, sma_bid = self.construct_ma(candles, price_type='bid')
 
@@ -108,6 +131,10 @@ class MACD(Strategy):
             return 'sell'
         else:
             return 'hold'
+
+    def collect(self):
+        candles = self.retrieve_data
+        return candles
 
 class McGinleyDynamic(Strategy):
     def __init__(self, *args, **kwargs):
