@@ -8,14 +8,14 @@ import sys
 from argparse import Namespace
 from typing import List
 
-from freqtrade import OperationalException
-from freqtrade.arguments import Arguments
-from freqtrade.configuration import Configuration, set_loggers
-from freqtrade.freqtradebot import FreqtradeBot
-from freqtrade.state import State
-from freqtrade.rpc import RPCMessageType
+from fxtrade import OperationalException
+from fxtrade.arguments import Arguments
+from fxtrade.configuration import Configuration, set_loggers
+from fxtrade.fxtradebot import FXTradeBot
+from fxtrade.state import State
+from fxtrade.rpc import RPCMessageType
 
-logger = logging.getLogger('freqtrade')
+logger = logging.getLogger('fxtrade')
 
 
 def main(sysargv):
@@ -35,19 +35,19 @@ def main(sysargv):
         args.func(args)
         return
 
-    freqtrade = None
+    fxtrade = None
     return_code = 1
     try:
         # Load and validate configuration
         config = Configuration(args, None).get_config()
         # Init the bot
-        freqtrade = FreqtradeBot(config)
+        fxtrade = FreqtradeBot(config)
 
         state = None
         while True:
-            state = freqtrade.worker(old_state=state)
+            state = fxtrade.worker(old_state=state)
             if state == State.RELOAD_CONF:
-                freqtrade = reconfigure(freqtrade, args)
+                fxtrade = reconfigure(fxtrade, args)
 
     except KeyboardInterrupt:
         logger.info('SIGINT received, aborting ...')
@@ -58,29 +58,29 @@ def main(sysargv):
     except BaseException:
         logger.exception('Fatal exception!')
     finally:
-        if freqtrade:
-            freqtrade.rpc.send_msg({
+        if fxtrade:
+            fxtrade.rpc.send_msg({
                 'type': RPCMessageType.STATUS_NOTIFICATION,
                 'status': 'process died'
             })
-            freqtrade.cleanup()
+            fxtrade.cleanup()
         sys.exit(return_code)
 
 
-def reconfigure(freqtrade: FreqtradeBot, args: Namespace) -> FreqtradeBot:
+def reconfigure(fxtrade: FreqtradeBot, args: Namespace) -> FreqtradeBot:
     """
     Cleans up current instance, reloads the configuration and returns the new instance
     """
     # Clean up current modules
-    freqtrade.cleanup()
+    fxtrade.cleanup()
 
     # Create new instance
-    freqtrade = FreqtradeBot(Configuration(args, None).get_config())
-    freqtrade.rpc.send_msg({
+    fxtrade = FXTradeBot(Configuration(args, None).get_config())
+    fxtrade.rpc.send_msg({
         'type': RPCMessageType.STATUS_NOTIFICATION,
         'status': 'config reloaded'
     })
-    return freqtrade
+    return fxtrade
 
 
 if __name__ == '__main__':
