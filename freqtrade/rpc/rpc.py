@@ -16,7 +16,6 @@ from pandas import DataFrame
 from freqtrade import TemporaryError, DependencyException
 from freqtrade.misc import shorten_date
 from freqtrade.persistence import Trade
-from freqtrade.rpc.fiat_convert import CryptoToFiatConverter
 from freqtrade.state import State
 from freqtrade.strategy.interface import SellType
 
@@ -54,7 +53,7 @@ class RPC(object):
     RPC class can be used to have extra feature, like bot data, and access to DB data
     """
     # Bind _fiat_converter if needed in each RPC handler
-    _fiat_converter: Optional[CryptoToFiatConverter] = None
+    _fiat_converter = None
 
     def __init__(self, freqtrade) -> None:
         """

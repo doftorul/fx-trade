@@ -22,7 +22,7 @@ Follow us: Investopedia on Facebook
 class Strategy(ABC):
     def __init__(self, api, instrument, **kwargs):
         self.api = api
-        self.idle_time() = kwargs.get("idle_time", 5)
+        self.idle_time = kwargs.get("idle_time", 5)
         #self.instrument = instrument
 
     
@@ -43,7 +43,8 @@ class Strategy(ABC):
         """
 
     @abstractmethod
-    def action(self, candles)
+    def action(self, candles):
+        pass
         
 
 

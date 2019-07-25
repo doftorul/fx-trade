@@ -11,7 +11,7 @@ from typing import List, Tuple
 from pandas import DataFrame
 
 from freqtrade.data.history import load_pair_history
-from freqtrade.exchange import Exchange
+from freqtrade.exchange.oanda import Oanda
 from freqtrade.state import RunMode
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class DataProvider(object):
 
-    def __init__(self, config: dict, exchange: Exchange) -> None:
+    def __init__(self, config: dict, exchange: Oanda) -> None:
         self._config = config
         self._exchange = exchange
 

@@ -18,7 +18,7 @@ from freqtrade.rpc import RPCMessageType
 logger = logging.getLogger('freqtrade')
 
 
-def main(sysargv: List[str]) -> None:
+def main(sysargv):
     """
     This function will initiate the bot and start the trading loop.
     :return: None
@@ -40,7 +40,6 @@ def main(sysargv: List[str]) -> None:
     try:
         # Load and validate configuration
         config = Configuration(args, None).get_config()
-
         # Init the bot
         freqtrade = FreqtradeBot(config)
 

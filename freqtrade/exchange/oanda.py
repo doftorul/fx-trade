@@ -23,15 +23,38 @@ from oandapyV20.contrib.requests import (
 )
 from oandapyV20.contrib.factories import InstrumentsCandlesFactory
 import logging
-from libs.utils import granularity_dict
 from typing import List, Dict, Tuple, Any, Optional
 from pandas import DataFrame
 
-from freqtrade.rpc import RPCMessageType
+
+from freqtrade.rpc import *
 from freqtrade import constants, OperationalException, DependencyException, TemporaryError
 from freqtrade.data.converter import parse_ticker_dataframe
 
 logger = logging.getLogger(__name__)
+granularity_dict = {
+    5       : "S5", 
+    10      : "S10",	
+    15      : "S15",	
+    30      : "S30",	
+    60      : "M1",
+    120     : "M2",
+    240     : "M4",
+    300     : "M5",
+    600     : "M10",	
+    900     : "M15",	
+    1800    : "M30",	
+    3600    : "H1",	
+    7200    : "H2",	
+    10800   : "H3",	
+    14400   : "H4",	
+    21600   : "H6",
+    28800   : "H8",	
+    43200   : "H12",	
+    86400   : "D",
+    604800  : "W",
+    2592000 : "M"
+}
 
 
 class Oanda(object):
@@ -370,8 +393,8 @@ class Oanda(object):
 
     """Prices"""
 
-    """
     #TODO not useful for the purpose of the bot
+    """
     def pricing_stream(self, instruments):
         if type(instruments) == "list":
             _ins=","

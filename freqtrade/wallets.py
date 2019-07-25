@@ -2,8 +2,7 @@
 """ Wallet """
 import logging
 from typing import Dict, Any, NamedTuple
-from freqtrade.exchange import Exchange
-
+from freqtrade.exchange.oanda import Oanda
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +28,7 @@ class Portfolio(object):
 # TODO: ADJUST THIS CLASS TO HANDLE WALLET OF OANDA INSTEAD OF CRYPTOCURRENCY
 class Wallets(object):
 
-    def __init__(self, exchange: Exchange) -> None:
+    def __init__(self, exchange):
         self.exchange = exchange
         self.wallets: Dict[str, Any] = {}
         self.update()

@@ -94,7 +94,7 @@ class Configuration(object):
             conf['internals'] = {}
         logger.info('Validating configuration ...')
 
-        return self._validate_config(conf)
+        return conf
 
     def _load_common_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """

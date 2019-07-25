@@ -14,7 +14,7 @@ from pandas import DataFrame
 
 from freqtrade import misc, constants, OperationalException
 from freqtrade.data.converter import parse_ticker_dataframe
-from freqtrade.exchange import Exchange
+from freqtrade.exchange.oanda import Oanda
 from freqtrade.arguments import TimeRange
 
 logger = logging.getLogger(__name__)
@@ -76,13 +76,13 @@ def load_tickerdata_file(
     return pairdata
 
 
-def load_pair_history(pair: str,
-                      ticker_interval: str,
-                      datadir: Optional[Path],
-                      timerange: TimeRange = TimeRange(None, None, 0, 0),
-                      refresh_pairs: bool = False,
-                      exchange: Optional[Exchange] = None,
-                      fill_up_missing: bool = True
+def load_pair_history(pair,
+                      ticker_interval,
+                      datadir,
+                      timerange = TimeRange(None, None, 0, 0),
+                      refresh_pairs = False,
+                      exchange = None,
+                      fill_up_missing = True
                       ) -> DataFrame:
     """
     Loads cached ticker history for the given pair.
@@ -124,7 +124,7 @@ def load_data(datadir: Optional[Path],
               ticker_interval: str,
               pairs: List[str],
               refresh_pairs: bool = False,
-              exchange: Optional[Exchange] = None,
+              exchange  = None,
               timerange: TimeRange = TimeRange(None, None, 0, 0),
               fill_up_missing: bool = True) -> Dict[str, DataFrame]:
     """
@@ -188,7 +188,7 @@ def load_cached_data_for_updating(filename: Path, tick_interval: str,
 
 
 def download_pair_history(datadir: Optional[Path],
-                          exchange: Exchange,
+                          exchange,
                           pair: str,
                           tick_interval: str = '5m',
                           timerange: Optional[TimeRange] = None) -> bool:

@@ -11,7 +11,7 @@ from freqtrade.edge import Edge
 
 from freqtrade.arguments import Arguments
 from freqtrade.configuration import Configuration
-from freqtrade.exchange import Exchange
+from freqtrade.exchange.oanda import Oanda
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.state import RunMode
 
@@ -36,7 +36,7 @@ class EdgeCli(object):
         self.config['exchange']['password'] = ''
         self.config['exchange']['uid'] = ''
         self.config['dry_run'] = True
-        self.exchange = Exchange(self.config)
+        self.exchange = Oanda(self.config, None)
         self.strategy = StrategyResolver(self.config).strategy
 
         self.edge = Edge(config, self.exchange, self.strategy)

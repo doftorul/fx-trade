@@ -17,7 +17,7 @@ from freqtrade import optimize
 from freqtrade import DependencyException, constants
 from freqtrade.arguments import Arguments
 from freqtrade.configuration import Configuration
-from freqtrade.exchange import Exchange
+from freqtrade.exchange.oanda import Oanda
 from freqtrade.data import history
 from freqtrade.misc import file_dump_json
 from freqtrade.persistence import Trade
@@ -80,7 +80,7 @@ class Backtesting(object):
         # Load one strategy
         self._set_strategy(self.strategylist[0])
 
-        self.exchange = Exchange(self.config)
+        self.exchange = Oanda(self.config, None)
         self.fee = self.exchange.get_fee()
 
     def _set_strategy(self, strategy):

@@ -6,7 +6,7 @@ from typing import Any, Dict, NamedTuple
 
 import arrow
 import numpy as np
-import utils_find_1st as utf1st
+# mport utils_find_1st as utf1st
 from pandas import DataFrame
 
 from freqtrade import constants, OperationalException

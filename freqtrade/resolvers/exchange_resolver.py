@@ -4,7 +4,7 @@ This module loads custom exchanges
 import logging
 from pathlib import Path
 
-from freqtrade.exchange import Exchange
+from freqtrade.exchange.oanda import Oanda
 from freqtrade.resolvers import IResolver
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class ExchangeResolver(IResolver):
             self.exchange = Exchange(config)
 
     def _load_exchange(
-            self, exchange_name: str, kwargs: dict) -> Exchange:
+            self, exchange_name: str, kwargs: dict) -> Oanda:
         """
         Search and loads the specified exchange.
         :param exchange_name: name of the module to import
@@ -40,7 +40,7 @@ class ExchangeResolver(IResolver):
         abs_path = Path(__file__).parent.parent.joinpath('exchange').resolve()
 
         try:
-            exchange = self._search_object(directory=abs_path, object_type=Exchange,
+            exchange = self._search_object(directory=abs_path, object_type=Oanda,
                                            object_name=exchange_name,
                                            kwargs=kwargs)
             if exchange:

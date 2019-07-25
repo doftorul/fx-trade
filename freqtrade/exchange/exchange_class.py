@@ -9,8 +9,8 @@ from math import floor, ceil
 
 import arrow
 import asyncio
-import ccxt
-import ccxt.async_support as ccxt_async
+# import ccxt
+# import ccxt.async_support as ccxt_async
 from pandas import DataFrame
 
 from freqtrade import constants, OperationalException, DependencyException, TemporaryError
@@ -23,8 +23,8 @@ API_RETRY_COUNT = 4
 
 # Urls to exchange markets, insert quote and base with .format()
 _EXCHANGE_URLS = {
-    ccxt.bittrex.__name__: '/Market/Index?MarketName={quote}-{base}',
-    ccxt.binance.__name__: '/tradeDetail.html?symbol={base}_{quote}'
+    # ccxt.bittrex.__name__: '/Market/Index?MarketName={quote}-{base}',
+    # ccxt.binance.__name__: '/tradeDetail.html?symbol={base}_{quote}'
 }
 
 
