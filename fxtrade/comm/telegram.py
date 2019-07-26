@@ -12,7 +12,7 @@ from telegram.error import NetworkError, TelegramError
 from telegram.ext import CommandHandler, Updater
 
 from fxtrade.__init__ import __version__
-from fxtrade.rpc import RPC, RPCException, RPCMessageType
+from fxtrade.comm.rpc import RPC, RPCException, RPCMessageType
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,6 @@ class Telegram(RPC):
         self._updater: Updater = None
         self._config = fxtrade.config
         self._init()
-        if self._config.get('fiat_display_currency', None):
-            self._fiat_converter = CryptoToFiatConverter()
 
     def _init(self) -> None:
         """
@@ -118,40 +116,16 @@ class Telegram(RPC):
         """ Send a message to telegram channel """
 
         if msg['type'] == RPCMessageType.BUY_NOTIFICATION:
-            if self._fiat_converter:
-                msg['stake_amount_fiat'] = self._fiat_converter.convert_amount(
-                    msg['stake_amount'], msg['stake_currency'], msg['fiat_currency'])
-            else:
-                msg['stake_amount_fiat'] = 0
-
-            message = ("*{exchange}:* Buying [{pair}]({market_url})\n"
-                       "with limit `{limit:.8f}\n"
-                       "({stake_amount:.6f} {stake_currency}").format(**msg)
-
-            if msg.get('fiat_currency', None):
-                message += ",{stake_amount_fiat:.3f} {fiat_currency}".format(**msg)
-            message += ")`"
+            message = ("*LONG:* [{pair}] ({units} units @ {price})\n"
+                       "TP: `{take_profit:.5f}`\n"
+                       "SL: `{stop_loss:.5f}`\n").format(**msg)
 
         elif msg['type'] == RPCMessageType.SELL_NOTIFICATION:
-            msg['amount'] = round(msg['amount'], 8)
-            msg['profit_percent'] = round(msg['profit_percent'] * 100, 2)
+            message = ("*SHORT:* [{pair}] ({units} units @ {price})\n"
+                       "TP: `{take_profit:.5f}`\n"
+                       "SL: `{stop_loss:.5f}`\n").format(**msg)
 
-            message = ("*{exchange}:* Selling [{pair}]({market_url})\n"
-                       "*Limit:* `{limit:.8f}`\n"
-                       "*Amount:* `{amount:.8f}`\n"
-                       "*Open Rate:* `{open_rate:.8f}`\n"
-                       "*Current Rate:* `{current_rate:.8f}`\n"
-                       "*Sell Reason:* `{sell_reason}`\n"
-                       "*Profit:* `{profit_percent:.2f}%`").format(**msg)
-
-            # Check if all sell properties are available.
-            # This might not be the case if the message origin is triggered by /forcesell
-            if (all(prop in msg for prop in ['gain', 'fiat_currency', 'stake_currency'])
-               and self._fiat_converter):
-                msg['profit_fiat'] = self._fiat_converter.convert_amount(
-                    msg['profit_amount'], msg['stake_currency'], msg['fiat_currency'])
-                message += ('` ({gain}: {profit_amount:.8f} {stake_currency}`'
-                            '` / {profit_fiat:.3f} {fiat_currency})`').format(**msg)
+            
 
         elif msg['type'] == RPCMessageType.STATUS_NOTIFICATION:
             message = '*Status:* `{status}`'.format(**msg)

@@ -4,7 +4,7 @@ This module contains class to manage RPC communications (Telegram, Slack, ...)
 import logging
 from typing import List, Dict, Any
 
-from fxtrade.rpc import RPC, RPCMessageType
+from fxtrade.comm.rpc import RPC, RPCMessageType
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +20,13 @@ class RPCManager(object):
         # Enable telegram
         if fxtrade.config['telegram'].get('enabled', False):
             logger.info('Enabling rpc.telegram ...')
-            from fxtrade.rpc.telegram import Telegram
+            from fxtrade.comm.telegram import Telegram
             self.registered_modules.append(Telegram(fxtrade))
 
         # Enable Webhook
         if fxtrade.config.get('webhook', {}).get('enabled', False):
             logger.info('Enabling rpc.webhook ...')
-            from fxtrade.rpc.webhook import Webhook
+            from fxtrade.comm.webhook import Webhook
             self.registered_modules.append(Webhook(fxtrade))
 
     def cleanup(self) -> None:
@@ -63,7 +63,7 @@ class RPCManager(object):
         minimal_roi = config['minimal_roi']
         ticker_interval = config['ticker_interval']
         exchange_name = config['exchange']['name']
-        strategy_name = config.get('strategy', '')
+        strategy_name = config['strategy']['name']
         self.send_msg({
             'type': RPCMessageType.CUSTOM_NOTIFICATION,
             'status': f'*Exchange:* `{exchange_name}`\n'
@@ -75,5 +75,4 @@ class RPCManager(object):
         self.send_msg({
             'type': RPCMessageType.STATUS_NOTIFICATION,
             'status': f'Searching for {stake_currency} pairs to buy and sell '
-                      f'based on {pairlist.short_desc()}'
         })

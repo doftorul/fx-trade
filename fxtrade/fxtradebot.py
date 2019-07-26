@@ -15,7 +15,8 @@ from requests.exceptions import RequestException
 from fxtrade import (DependencyException, OperationalException,
                        TemporaryError, __version__, constants, persistence)
 from fxtrade.data.converter import order_book_to_dataframe
-from fxtrade.rpc import RPCManager, RPCMessageType
+from fxtrade.comm.rpc_manager import RPCManager
+from fxtrade.comm.rpc import RPCMessageType
 from fxtrade.state import State
 from fxtrade.strategy.interface import retrieve_strategy, Instrument
 from fxtrade.wallets import Portfolio
@@ -25,6 +26,11 @@ from libs.factory import DataFactory
 
 logger = logging.getLogger(__name__)
 
+signal2index = {
+    'buy' : 1,
+    'sell' : -1, 
+    'hold' : 0
+}
 
 class FXTradeBot(object):
     """
@@ -64,6 +70,8 @@ class FXTradeBot(object):
 
         self.pairlists = self.config.get('exchange').get('pair_whitelist', [])
         self.pairlists = [Instrument(pair, "") for pair in self.pairlists]
+
+        
         self.strategies = [
             self.strategy(
                 api=self.exchange, 
@@ -73,8 +81,11 @@ class FXTradeBot(object):
         
         # Initializing Edge only if enabled
         # TODO: EDGE COMBINED WITH PORTFOLIO MANAGEMENT STRATEGIES FOR FOREX
-
-        self.portfolio = Portfolio(self.exchange, self.pairlists)
+        self.portfolio = Portfolio(
+            api=self.exchange, 
+            pairlists=self.pairlists, 
+            stake=self.config["stake_amount"]
+            )
 
         # Set initial application state
         initial_state = self.config.get('initial_state')
@@ -115,14 +126,14 @@ class FXTradeBot(object):
             time.sleep(1)
         elif state == State.RUNNING:
 
-            pool = Pool(processes=len(self.pairlists))
-
             funds = self.portfolio.update()
 
-            input_tuple = list(zip(self.pairlists, self.strategies, funds))
-            self.pairlists = pool.starmap(self._process, input_tuple)
-            pool.close()
-            pool.join()
+            updated_pairlist = []
+            for p, s, f in zip(self.pairlists, self.strategies, funds):
+                updated_pair = self._process(p,s,f)
+                updated_pairlist.append(updated_pair)
+
+            self.pairlists = updated_pairlist
 
         return state
 
@@ -135,9 +146,10 @@ class FXTradeBot(object):
         """
 
         try:
-
             current_time, order_signal = strategy.idle(instrument) #check if the time is updated (this includes a while loop, so remove the outer loop)
-            instrument.time = current_time
+            instrument.time = current_time #updated every granularity occurs
+
+            order_signal = signal2index[order_signal]
 
             order_signal_id = [2,0,1][order_signal] #1, -1, 0
             self.exchange.sync_with_oanda()
@@ -145,43 +157,45 @@ class FXTradeBot(object):
             if current_position != order_signal:
                 if current_position is not None:
                     self.exchange.close_order(instrument.name)
-                self.exchange.open_order(instrument.name, order_signal*to_commit)
+                self.exchange.open_order(instrument.name, order_signal*to_commit, stop_loss=0.02, take_profit=0.05)
             else:
-                message = '{}: {} (holding)'.format(['Long', 'Short', 'Nothing'][order_signal_id], instrument)
+                message = '{}: {} (holding)'.format(['Long', 'Short', 'Nothing'][order_signal_id], instrument.name)
                 print(message)
                 self.rpc.send_msg({
                 'type': RPCMessageType.STATUS_NOTIFICATION,
                 'status': message
             })
         except Exception as error:
+            traceback.print_exc()
             logger.warning(f"Error: {error}, retrying in {constants.RETRY_TIMEOUT} seconds...")
-            tb = traceback.format_exc()
-            hint = 'Issue `/start` if you think it is safe to restart.'
+            
+            # tb = traceback.format_exc()
+            # hint = 'Issue `/start` if you think it is safe to restart.'
             self.rpc.send_msg({
                 'type': RPCMessageType.STATUS_NOTIFICATION,
-                'status': f'OperationalException:\n```\n{tb}```{hint}'
+                'status': f'OperationalException:\n```\n{error}```'
             })
             #time.sleep(constants.RETRY_TIMEOUT)
 
         return instrument
 
-    def something(self):
+    # def something(self):
 
-        self.rpc.send_msg({
-            'type': RPCMessageType.BUY_NOTIFICATION,
-            'exchange': self.exchange.name.capitalize(),
-            'pair': pair_s,
-            'market_url': pair_url,
-            'limit': buy_limit_filled_price,
-            'stake_amount': stake_amount,
-            'stake_currency': stake_currency,
-            'fiat_currency': fiat_currency
-        })
+    #     self.rpc.send_msg({
+    #         'type': RPCMessageType.BUY_NOTIFICATION,
+    #         'exchange': self.exchange.name.capitalize(),
+    #         'pair': pair_s,
+    #         'market_url': pair_url,
+    #         'limit': buy_limit_filled_price,
+    #         'stake_amount': stake_amount,
+    #         'stake_currency': stake_currency,
+    #         'fiat_currency': fiat_currency
+    #     })
 
     
-        self.rpc.send_msg({
-                'type': RPCMessageType.STATUS_NOTIFICATION,
-                'status': f'Unfilled sell order for {trade.pair} cancelled {reason}'
-            })
+    #     self.rpc.send_msg({
+    #             'type': RPCMessageType.STATUS_NOTIFICATION,
+    #             'status': f'Unfilled sell order for {trade.pair} cancelled {reason}'
+    #         })
 
-        return False
+    #     return False

@@ -3,7 +3,6 @@
 import logging
 import numpy as np
 from typing import Dict, Any, NamedTuple
-from fxtrade.exchange.oanda import Oanda
 logger = logging.getLogger(__name__)
 
 # wallet data structure
@@ -15,23 +14,24 @@ class Wallet(NamedTuple):
     total: float = 0
 
 class Portfolio(object):
-    def __init__(self, api, pairlists):
+    def __init__(self, api, pairlists, stake):
         self.pairlists = pairlists
         self.api = api
+        self.stake = stake
     
     def update(self):
 
-        balance = self.api.get_balance()
-        print(balance)
-        1/0
-        balance *= 0.33
+        balance = float(self.api.get_balance())
+        balance *= self.stake
 
         funds_p = np.random.dirichlet(np.ones(len(self.pairlists)),size=1)
 
         funds = []
         for f in funds_p:
             funds.append(f*balance)
-        return funds
+
+
+        return [np.round(f,2) for f in funds[0].tolist()]
 
 
 # TODO: ADJUST THIS CLASS TO HANDLE WALLET OF OANDA INSTEAD OF CRYPTOCURRENCY

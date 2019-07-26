@@ -1,3 +1,6 @@
+from fxtrade import constants, OperationalException, DependencyException, TemporaryError
+from fxtrade.comm.rpc import RPCMessageType, RPC, RPCException
+from fxtrade.data.converter import parse_ticker_dataframe
 from tabulate import tabulate
 import arrow
 
@@ -19,17 +22,16 @@ import oandapyV20.endpoints.accounts as accounts
 from oandapyV20.contrib.requests import (
     MarketOrderRequest,
     TakeProfitDetails,
-    StopLossDetails
+    StopLossDetails,
+    StopLossOrderRequest,
+    TakeProfitOrderRequest
 )
 from oandapyV20.contrib.factories import InstrumentsCandlesFactory
 import logging
 from typing import List, Dict, Tuple, Any, Optional
 from pandas import DataFrame
+import numpy as np
 
-
-from fxtrade.rpc import *
-from fxtrade import constants, OperationalException, DependencyException, TemporaryError
-from fxtrade.data.converter import parse_ticker_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +130,6 @@ class Oanda(object):
         """
         try:
             rv = self._api.request(request)
-            # print(json.dumps(rv, indent=2))
             return rv
         except V20Error as err:
             status_code = request.status_code
@@ -269,13 +270,14 @@ class Oanda(object):
             }
         for pos in order_book_oanda['positions']:
             try:
-                trade_id = pos['long']['tradeIDs']
+                trade_id = pos['long']['tradeIDs'][0]
                 order_type = 1
             except KeyError:
-                trade_id = pos['short']['tradeIDs']
+                trade_id = pos['short']['tradeIDs'][0]
                 order_type = -1
             order_book[pos['instrument']]['tradeID'] = trade_id
             order_book[pos['instrument']]['order_type'] = order_type
+
         return order_book
 
     def sync_with_oanda(self):
@@ -290,7 +292,6 @@ class Oanda(object):
         # check if position is already open
         if units < 0:
             if self.order_book[instrument]['order_type'] is (not None and -1):
-                print('Short: {} (holding)'.format(instrument))
                 self.rpc.send_msg({
                 'type': RPCMessageType.STATUS_NOTIFICATION,
                 'status': 'Short: {} (holding)'.format(instrument)
@@ -298,14 +299,12 @@ class Oanda(object):
                 return 1
         elif units > 0:
             if self.order_book[instrument]['order_type'] is (not None and 1):
-                print('Long: {} (holding)'.format(instrument))
                 self.rpc.send_msg({
                 'type': RPCMessageType.STATUS_NOTIFICATION,
                 'status': 'Long: {} (holding)'.format(instrument)
                 })
                 return 1
         else:
-            print('Nothing: {} | 0 units specified'.format(instrument))
             self.rpc.send_msg({
                 'type': RPCMessageType.STATUS_NOTIFICATION,
                 'status': 'Nothing: {} | 0 units specified'.format(instrument)
@@ -321,10 +320,11 @@ class Oanda(object):
         order_params = {
             "tradeClientExtensions" : client_extensions
         }
-        if stop_loss:
-            order_params["stopLossOnFill"] = StopLossDetails(price=stop_loss).data
-        if take_profit:
-            order_params["takeProfitOnFill"] = TakeProfitDetails(price=take_profit).data
+
+        # if stop_loss:
+        #     order_params["stopLossOnFill"] = StopLossDetails(price=stop_loss).data
+        # if take_profit:
+        #     order_params["takeProfitOnFill"] = TakeProfitDetails(price=take_profit).data
         
 
         mkt_order = MarketOrderRequest(
@@ -332,26 +332,58 @@ class Oanda(object):
                     units=units,
                     **order_params
                     )
+
+        sign = float(np.sign(units))
             
         endpoint = orders.OrderCreate(self.account_id, mkt_order.data)
         request_data = self.send_request(endpoint)
+        price = float(request_data['orderFillTransaction']['price'])
+        tradeID = request_data['lastTransactionID']
+        instrument = request_data['orderCreateTransaction']['instrument']
+
+        rounding = 4 if instrument!="USD_JPY" else 2
+        # define stop loss
+        if stop_loss:
+            stop_loss_pips = round(price*(1-stop_loss*sign), rounding)
+            stop_loss_order = StopLossOrderRequest(
+                tradeID=tradeID, 
+                price=stop_loss_pips
+                )
+            stop_loss_endpoint = orders.OrderCreate(self.account_id, stop_loss_order.data)
+            request_data = self.send_request(stop_loss_endpoint)
+            tradeID = request_data['orderCreateTransaction']['tradeID']
+        # define take profit
+        if take_profit:
+            take_profit_pips = round(price*(1+take_profit*sign), rounding)
+            take_profit_order = TakeProfitOrderRequest(
+                tradeID=tradeID, 
+                price=take_profit_pips
+                )
+            take_profit_endpoint = orders.OrderCreate(self.account_id, take_profit_order.data)
+            request_data = self.send_request(take_profit_endpoint)
+            tradeID = request_data['orderCreateTransaction']['tradeID']
 
         # check if request was fulfilled and save its ID
         if request_data is not 1:
-            instrument = request_data['orderCreateTransaction']['instrument']
-            self.order_book[instrument]['tradeID'] = request_data['lastTransactionID']
+            self.order_book[instrument]['tradeID'] = tradeID
             self.order_book[instrument]['order_type'] = -1 if units < 0 else 1
             if units > 0:
-                print("Long : {}".format(instrument))
                 self.rpc.send_msg({
                 'type': RPCMessageType.BUY_NOTIFICATION,
-                'status': "Long : {}".format(instrument)
+                'units' : units,
+                'price' : price,
+                'pair' : instrument,
+                'take_profit' : take_profit_pips,
+                'stop_loss' : stop_loss_pips
                 })
             else:
-                print("Short : {}".format(instrument))
                 self.rpc.send_msg({
                 'type': RPCMessageType.SELL_NOTIFICATION,
-                'status': "Short : {}".format(instrument)
+                'units' : units,
+                'price' : price,
+                'pair' : instrument,
+                'take_profit' : take_profit_pips,
+                'stop_loss' : stop_loss_pips
                 })
 
             return 0

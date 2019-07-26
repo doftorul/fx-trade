@@ -6,14 +6,12 @@ Read the documentation to know what cli arguments you need.
 import logging
 import sys
 from argparse import Namespace
-from typing import List
-
 from fxtrade import OperationalException
 from fxtrade.arguments import Arguments
 from fxtrade.configuration import Configuration, set_loggers
 from fxtrade.fxtradebot import FXTradeBot
 from fxtrade.state import State
-from fxtrade.rpc import RPCMessageType
+from fxtrade.comm.rpc import RPCMessageType
 
 logger = logging.getLogger('fxtrade')
 
@@ -41,7 +39,7 @@ def main(sysargv):
         # Load and validate configuration
         config = Configuration(args, None).get_config()
         # Init the bot
-        fxtrade = FreqtradeBot(config)
+        fxtrade = FXTradeBot(config)
 
         state = None
         while True:
@@ -67,7 +65,7 @@ def main(sysargv):
         sys.exit(return_code)
 
 
-def reconfigure(fxtrade: FreqtradeBot, args: Namespace) -> FreqtradeBot:
+def reconfigure(fxtrade: FXTradeBot, args: Namespace) -> FXTradeBot:
     """
     Cleans up current instance, reloads the configuration and returns the new instance
     """

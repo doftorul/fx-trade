@@ -22,25 +22,19 @@ Follow us: Investopedia on Facebook
 class Strategy(ABC):
     def __init__(self, api, instrument, **kwargs):
         self.api = api
+        self.instrument = instrument.name
+        self.granularity = kwargs.get("granularity", 60)
+        self.count = kwargs.get("count", 50)
         self.idle_time = kwargs.get("idle_time", 5)
-        #self.instrument = instrument
 
     
-    def retrieve_data(self, granularity, count, price="MBA"):
+    def collect(self, price="MBA"):
         return self.api.get_history(
             self.instrument, 
-            granularity, 
-            count, 
+            self.granularity, 
+            self.count, 
             price="MBA"
             )
-   
-
-
-    @abstractmethod
-    def collect(self):
-        """
-        This collects candles for the particular strategy
-        """
 
     @abstractmethod
     def action(self, candles):
@@ -53,9 +47,10 @@ class Strategy(ABC):
         while True:
             candles = self.collect()
             current_time = candles[-1]['time']
+            print(f"current time {current_time}")
             if current_time != instrument.time:
                 break
-            time.sleep()
+            time.sleep(self.idle_time)
 
         order_signal = self.action(candles)
 
@@ -133,10 +128,6 @@ class MACD(Strategy):
         else:
             return 'hold'
 
-    def collect(self):
-        candles = self.retrieve_data
-        return candles
-
 class McGinleyDynamic(Strategy):
     def __init__(self, *args, **kwargs):
         super(McGinleyDynamic, self).__init__(*args, **kwargs)
@@ -151,8 +142,7 @@ class McGinleyDynamic(Strategy):
 
         return mgd
 
-    def action(self):
-        candles = self.retrieve_data(300, 48) 
+    def action(self, candles):
         mgd_bid, mgd_ask = self.construct_mgd(candles, price_type='bid', N=10), self.construct_mgd(candles, price_type='ask', N=10)
 
         d_mgd_bid = 3*mgd_bid[-1] - 4*mgd_bid[-2] + mgd_bid[-3]
@@ -241,9 +231,7 @@ class ParabolicSAR(Strategy):
 
         return psar_uptrend, psar_downtrend
 
-    def action(self):
-
-        candles = self.retrieve_data(300, 48) 
+    def action(self, candles):
 
         psar_uptrend, psar_downtrend = self.construct_psar(candles, 'ask')
 

@@ -1,6 +1,8 @@
 {
+    
+    "minimal_roi" : 0.05,
     "max_open_trades": 6,
-    "stake_currency": "BTC",
+    "stake_currency": "EUR",
     "stake_amount": 0.3,
     "ticker_interval" : "5m", 
     "dry_run": true,
@@ -12,7 +14,9 @@
     "strategy": {
         "name": "Random",
         "params": {
-            "idle_time" : 5
+            "idle_time" : 5,
+            "granularity": 60,
+            "count" : 50
         }
     },
     "ask_strategy":{

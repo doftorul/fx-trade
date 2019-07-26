@@ -13,7 +13,7 @@ import warnings
 import arrow
 from pandas import DataFrame
 
-from fxtrade.data.dataprovider import DataProvider
+# from fxtrade.data.dataprovider import DataProvider
 # from fxtrade.exchange.exchange_class import timeframe_to_minutes
 from fxtrade.persistence import Trade
 from fxtrade.wallets import Wallets
@@ -101,7 +101,6 @@ class IStrategy(ABC):
     # Class level variables (intentional) containing
     # the dataprovider (dp) (access to other candles, historic data, ...)
     # and wallets - access to the current balance.
-    dp: DataProvider
     wallets: Wallets
 
     def __init__(self, config: dict) -> None:
