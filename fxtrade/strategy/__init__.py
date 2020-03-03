@@ -1,4 +1,5 @@
 from fxtrade.strategy.strategies import *
+from fxtrade.strategy.neural import *
 
 import logging
 import sys
