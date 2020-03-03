@@ -14,9 +14,7 @@ Technical analysis (e.g. moving averages)
 The market microstructure (e.g. arbitrage or trade infrastructure)
 
 
-Read more: Coding Your Own Algo Trading Robot
 Investopedia https://www.investopedia.com/articles/active-trading/081315/how-code-your-own-algo-trading-robot.asp#ixzz5YcW8c3zA 
-Follow us: Investopedia on Facebook
 """
 
 class Strategy(ABC):
@@ -50,7 +48,7 @@ class Strategy(ABC):
         while True:
             candles = self.collect()
             current_time = candles[-1]['time']
-            print(f"current time {current_time}")
+            # print(f"current time {current_time}")
             if current_time != instrument.time:
                 break
             time.sleep(self.idle_time)

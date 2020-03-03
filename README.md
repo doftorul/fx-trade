@@ -28,7 +28,7 @@ Log other statistical data:
 
 ## ToDos
 
-- [ ] beautify logging
+- [x] beautify logging telegram
 - [ ] connect telegram commands with Oanda api
 - [x] Parallelize currency processes
 - [ ] Define MACD strategies and other with techical indicators

@@ -28,6 +28,8 @@ class RPCMessageType(Enum):
     CUSTOM_NOTIFICATION = 'custom'
     BUY_NOTIFICATION = 'buy'
     SELL_NOTIFICATION = 'sell'
+    IDLE_NOTIFICATION = 'idle'
+    HOLD_NOTIFICATION = 'hold'
 
     def __repr__(self):
         return self.value

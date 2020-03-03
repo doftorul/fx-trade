@@ -76,8 +76,7 @@ class FXTradeBot(object):
         # Attach Wallets to Strategy baseclass
         # IStrategy.wallets = self.wallets
 
-        self.pairlists = self.config.get('exchange').get('pair_whitelist', [])
-        self.pairlists = [Instrument(pair, "") for pair in self.pairlists]
+        self.pairlists = [Instrument(pair, "") for pair in self.config.get('exchange').get('pair_whitelist', [])]
 
         
         self.strategies = [
@@ -135,6 +134,11 @@ class FXTradeBot(object):
 
             funds = self.portfolio.update()
 
+            self.rpc.send_msg({
+                'type': RPCMessageType.IDLE_NOTIFICATION,
+                'status': "Fetching candles | Gran. {} s".format(self.strategy_params["granularity"])
+            })
+
             self_list = [self]*len(self.pairlists)
             self.pairlists = Parallel(n_jobs= -1, backend="threading")(delayed(unwrap_self)(_self,p,s,f) for _self,p,s,f in zip(self_list, self.pairlists, self.strategies, funds))
 
@@ -177,10 +181,9 @@ class FXTradeBot(object):
                     take_profit=self.take_profit
                     )
             else:
-                message = '{}: {} (holding)'.format(['Long', 'Short', 'Nothing'][order_signal_id], instrument.name)
-                print(message)
+                message = '{} ({})'.format(instrument.name, ['Long', 'Short', 'Not traded'][order_signal_id])
                 self.rpc.send_msg({
-                'type': RPCMessageType.STATUS_NOTIFICATION,
+                'type': RPCMessageType.HOLD_NOTIFICATION,
                 'status': message
             })
         except Exception as error:

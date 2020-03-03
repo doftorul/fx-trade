@@ -3,5 +3,4 @@ oandapyV20==0.6.3
 arrow==0.15.5
 python-rapidjson==0.9.1
 scikit-optimize==0.7.4
-pathos==0.2.5
 joblib==0.13.2

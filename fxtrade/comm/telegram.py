@@ -73,7 +73,7 @@ class Telegram(RPC):
         registers all known command handlers
         and starts polling for message updates
         """
-        self._updater = Updater(token=self._config['telegram']['token'], workers=0)
+        self._updater = Updater(token=self._config['telegram']['token'], workers=0)#, use_context=True)
 
         # Register command handler and start telegram message polling
         handles = [
@@ -116,16 +116,16 @@ class Telegram(RPC):
         """ Send a message to telegram channel """
 
         if msg['type'] == RPCMessageType.BUY_NOTIFICATION:
-            message = ("*LONG:* [{pair}] ({units} units @ {price})\n"
+            message = ("*LONG:* [{pair}] (`{units}` units @ `{price}`)\n"
                        "TP: `{take_profit:.5f}`\n"
                        "SL: `{stop_loss:.5f}`\n").format(**msg)
 
         elif msg['type'] == RPCMessageType.SELL_NOTIFICATION:
-            message = ("*SHORT:* [{pair}] ({units} units @ {price})\n"
+            message = ("*SHORT:* [{pair}] (`{units}` units @ `{price}`)\n"
                        "TP: `{take_profit:.5f}`\n"
                        "SL: `{stop_loss:.5f}`\n").format(**msg)
-
-            
+        elif msg['type'] == RPCMessageType.HOLD_NOTIFICATION:
+            message = ("*HOLD:* `{status}`").format(**msg)
 
         elif msg['type'] == RPCMessageType.STATUS_NOTIFICATION:
             message = '*Status:* `{status}`'.format(**msg)
@@ -135,6 +135,9 @@ class Telegram(RPC):
 
         elif msg['type'] == RPCMessageType.CUSTOM_NOTIFICATION:
             message = '{status}'.format(**msg)
+
+        elif msg['type'] == RPCMessageType.IDLE_NOTIFICATION:
+            message =  '*Idle:* `{status}`'.format(**msg)
 
         else:
             raise NotImplementedError('Unknown message type: {}'.format(msg['type']))

@@ -303,21 +303,21 @@ class Oanda(object):
         if units < 0:
             if self.order_book[instrument]['order_type'] is (not None and -1):
                 self.rpc.send_msg({
-                'type': RPCMessageType.STATUS_NOTIFICATION,
-                'status': 'Short: {} (holding)'.format(instrument)
+                'type': RPCMessageType.HOLD_NOTIFICATION,
+                'status': '{} (Short) '.format(instrument)
                 })
                 return 1
         elif units > 0:
             if self.order_book[instrument]['order_type'] is (not None and 1):
                 self.rpc.send_msg({
-                'type': RPCMessageType.STATUS_NOTIFICATION,
-                'status': 'Long: {} (holding)'.format(instrument)
+                'type': RPCMessageType.HOLD_NOTIFICATION,
+                'status': '{} (Long) '.format(instrument)
                 })
                 return 1
         else:
             self.rpc.send_msg({
-                'type': RPCMessageType.STATUS_NOTIFICATION,
-                'status': 'Nothing: {} | 0 units specified'.format(instrument)
+                'type': RPCMessageType.HOLD_NOTIFICATION,
+                'status': '{} (Not traded)'.format(instrument)
                 })
             return 1
 
@@ -395,7 +395,7 @@ class Oanda(object):
             else:
                 self.rpc.send_msg({
                 'type': RPCMessageType.SELL_NOTIFICATION,
-                'units' : units,
+                'units' : -units,
                 'price' : price,
                 'pair' : instrument,
                 'take_profit' : take_profit_pips,
