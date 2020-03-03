@@ -22,7 +22,9 @@ from fxtrade.strategy.interface import retrieve_strategy, Instrument
 from fxtrade.wallets import Portfolio
 from fxtrade.exchange.oanda import Oanda
 from multiprocessing import Process, Pool
-# from libs.factory import DataFactory
+from joblib import Parallel, delayed
+
+# from pathos.multiprocessing import ProcessingPool as Pool# from libs.factory import DataFactory
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,9 @@ signal2index = {
     'sell' : -1, 
     'hold' : 0
 }
+
+def unwrap_self(*arg, **kwarg):
+    return FXTradeBot._process(*arg, **kwarg)
 
 class FXTradeBot(object):
     """
@@ -130,12 +135,14 @@ class FXTradeBot(object):
 
             funds = self.portfolio.update()
 
-            updated_pairlist = []
-            for p, s, f in zip(self.pairlists, self.strategies, funds):
-                updated_pair = self._process(p,s,f)
-                updated_pairlist.append(updated_pair)
+            self_list = [self]*len(self.pairlists)
+            self.pairlists = Parallel(n_jobs= -1, backend="threading")(delayed(unwrap_self)(_self,p,s,f) for _self,p,s,f in zip(self_list, self.pairlists, self.strategies, funds))
 
-            self.pairlists = updated_pairlist
+            # updated_pairlist = []
+            # for p, s, f in zip(self.pairlists, self.strategies, funds):
+            #     updated_pair = self._process(p,s,f)
+            #     updated_pairlist.append(updated_pair)
+            #self.pairlists = updated_pairlist
 
         return state
 

@@ -3,3 +3,4 @@ oandapyV20
 arrow
 python-rapidjson
 scikit-optimize
+pathos
