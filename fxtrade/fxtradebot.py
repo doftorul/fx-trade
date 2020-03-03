@@ -22,7 +22,7 @@ from fxtrade.strategy.interface import retrieve_strategy, Instrument
 from fxtrade.wallets import Portfolio
 from fxtrade.exchange.oanda import Oanda
 from multiprocessing import Process, Pool
-from libs.factory import DataFactory
+# from libs.factory import DataFactory
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,9 @@ class FXTradeBot(object):
         #this should be a class that is initialised
         self.strategy = retrieve_strategy(self.config["strategy"]["name"])
         self.strategy_params = self.config["strategy"]["params"]
+
+        self.stop_loss = self.config["edge"]["stop_loss"]
+        self.take_profit = self.config["edge"]["take_profit"]
 
         self.rpc: RPCManager = RPCManager(self)
 
@@ -103,7 +106,6 @@ class FXTradeBot(object):
         """
         logger.info('Cleaning up modules ...')
         self.rpc.cleanup()
-        persistence.cleanup()
 
     def worker(self, old_state: State = None, idle: int = constants.PROCESS_THROTTLE_SECS) -> State:
         """
@@ -145,6 +147,9 @@ class FXTradeBot(object):
         an action. 
         """
 
+        if instrument.units:
+            to_commit = instrument.units
+
         try:
             current_time, order_signal = strategy.idle(instrument) #check if the time is updated (this includes a while loop, so remove the outer loop)
             instrument.time = current_time #updated every granularity occurs
@@ -155,9 +160,15 @@ class FXTradeBot(object):
             self.exchange.sync_with_oanda()
             current_position = self.exchange.order_book[instrument.name]['order_type']
             if current_position != order_signal:
-                if current_position is not None:
+                if current_position:
                     self.exchange.close_order(instrument.name)
-                self.exchange.open_order(instrument.name, order_signal*to_commit, stop_loss=0.02, take_profit=0.05)
+                self.exchange.open_order(
+                    instrument=instrument.name, 
+                    units=order_signal*to_commit, 
+                    #price=actual_price, 
+                    stop_loss=self.stop_loss, 
+                    take_profit=self.take_profit
+                    )
             else:
                 message = '{}: {} (holding)'.format(['Long', 'Short', 'Nothing'][order_signal_id], instrument.name)
                 print(message)
@@ -176,6 +187,12 @@ class FXTradeBot(object):
                 'status': f'OperationalException:\n```\n{error}```'
             })
             #time.sleep(constants.RETRY_TIMEOUT)
+
+        self.exchange.sync_with_oanda()
+        if not self.exchange.order_book[instrument.name]['order_type']:
+            instrument.units = 0
+        else:
+            instrument.units = to_commit
 
         return instrument
 

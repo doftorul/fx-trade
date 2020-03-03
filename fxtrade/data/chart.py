@@ -30,3 +30,11 @@ def plot_candles(candles, price_type='mid'):
     data = [trace]
 
     plotly.offline.plot(data, filename="candles_{}.html")
+
+
+def save(xs, ys, names):
+    fig = go.Figure()
+
+    for x, y, name in zip(xs, ys, names):
+        fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name=name))
+    plotly.offline.plot(fig, filename = 'filename.html', auto_open=False) 

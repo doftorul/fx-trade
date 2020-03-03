@@ -24,14 +24,15 @@ class Portfolio(object):
         balance = float(self.api.get_balance())
         balance *= self.stake
 
-        funds_p = np.random.dirichlet(np.ones(len(self.pairlists)),size=1)
+        balance /= len(self.pairlists)
+        balance = int(balance)
 
-        funds = []
-        for f in funds_p:
-            funds.append(f*balance)
+        # funds_p = np.random.dirichlet(np.ones(len(self.pairlists)),size=1)
 
+        funds = [balance for _ in range(len(self.pairlists))]
 
-        return [np.round(f,2) for f in funds[0].tolist()]
+        # return [np.round(f,2) for f in funds[0].tolist()]
+        return funds
 
 
 # TODO: ADJUST THIS CLASS TO HANDLE WALLET OF OANDA INSTEAD OF CRYPTOCURRENCY

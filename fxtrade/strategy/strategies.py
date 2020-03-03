@@ -25,15 +25,18 @@ class Strategy(ABC):
         self.instrument = instrument.name
         self.granularity = kwargs.get("granularity", 60)
         self.count = kwargs.get("count", 50)
-        self.idle_time = kwargs.get("idle_time", 5)
+        self.idle_time = min(kwargs.get("idle_time", 5), self.granularity/10) #assert idle time for polling the server is one order of magnitude lower than granularity
 
     
-    def collect(self, price="MBA"):
+    def collect(self, granularity=None, count=None, price="MBA"):
+        if not granularity: granularity = self.granularity
+        if not count: count = self.count
+
         return self.api.get_history(
             self.instrument, 
-            self.granularity, 
-            self.count, 
-            price="MBA"
+            granularity, 
+            count, 
+            price=price
             )
 
     @abstractmethod
@@ -41,7 +44,7 @@ class Strategy(ABC):
         pass
         
 
-
+    # wait for new candles, then perform action
     def idle(self, instrument):
         # candles = self.retrieve_data(300, 48)
         while True:
@@ -52,14 +55,14 @@ class Strategy(ABC):
                 break
             time.sleep(self.idle_time)
 
-        order_signal = self.action(candles)
-
+        # .action method can use collect() or extract_prices to extract other relevant time series
+        order_signal, actual_price = self.action(candles)
         # order_signal should be 1 [buy] , -1 [sell], 0 [hold]
 
-        return current_time, order_signal
+        return current_time, order_signal, actual_price
 
     def extract_prices(self, candles, price_type='mid'):
-        price_type = price_type.capitalize()
+        # price_type = price_type.capitalize()
 
         opens = []
         closes = []
@@ -76,7 +79,7 @@ class Strategy(ABC):
             timestamps.append(candle['time'][:19]) #'2018-10-05T14:56:40'
             volumes.append(int(candle['volume']))
 
-        return opens, closes, highs, lows#,timestamps, volumes
+        return opens, closes, highs, lows, volumes
 
 class Random(Strategy):
     def __init__(self, *args, **kwargs):
@@ -143,7 +146,8 @@ class McGinleyDynamic(Strategy):
         return mgd
 
     def action(self, candles):
-        mgd_bid, mgd_ask = self.construct_mgd(candles, price_type='bid', N=10), self.construct_mgd(candles, price_type='ask', N=10)
+        mgd_bid = self.construct_mgd(candles, price_type='bid', N=10), self.construct_mgd(candles, price_type='ask', N=10)
+        mgd_ask = self.construct_mgd(candles, price_type='ask', N=10), self.construct_mgd(candles, price_type='ask', N=10)
 
         d_mgd_bid = 3*mgd_bid[-1] - 4*mgd_bid[-2] + mgd_bid[-3]
         d_mgd_ask = 3*mgd_ask[-1] - 4*mgd_ask[-2] + mgd_ask[-3]

@@ -207,7 +207,7 @@ class Oanda(object):
     """Instrument info"""
     #see http://developer.oanda.com/rest-live-v20/instrument-ep/
     def get_history(self, instrument: str, granularity:str, count: int = 50, 
-        _from=None, _to=None, price="MBA" 
+        _from=None, _to=None, price="MBA", complete=False
         ):
 
         #granularity input is given as a number  [seconds] 
@@ -245,8 +245,10 @@ class Oanda(object):
             single_req = self.send_request(req)
             candles += single_req['candles']
         
-        return candles[1:] if candles[-1]["complete"] \
-            else candles[:-1]
+        if not complete:
+            return candles
+        else:
+            return candles if candles[-1]["complete"] else candles[:-1]
 
     def instruments_order_book(self, instrument, params={}):
         endpoint = instruments.InstrumentsOrderBook(instrument, params)
@@ -265,8 +267,8 @@ class Oanda(object):
         order_book = {}
         for pair in self.pairs:
             order_book[pair] = {
-                'order_type': None, 
-                'tradeID': None
+                'order_type': 0, 
+                'tradeID': 0
             }
         for pos in order_book_oanda['positions']:
             try:
@@ -285,8 +287,16 @@ class Oanda(object):
 
     """Orders"""
 
-    def open_order(self, instrument: str, units: int, 
-        stop_loss: float = 0, take_profit: float = 0, comment="", strategy="", other=""
+    def open_order(
+        self, 
+        instrument: str, 
+        units: int, 
+        stop_loss: float = 0, 
+        take_profit: float = 0, 
+        comment="", 
+        strategy="", 
+        other="",
+        # price: float,
         ):
 
         # check if position is already open
@@ -321,9 +331,14 @@ class Oanda(object):
             "tradeClientExtensions" : client_extensions
         }
 
+        sign = float(np.sign(units))
+        rounding = 4 if instrument!="USD_JPY" else 2
+
         # if stop_loss:
+        #     stop_loss_pips = round(price*(1-stop_loss*sign), rounding)
         #     order_params["stopLossOnFill"] = StopLossDetails(price=stop_loss).data
         # if take_profit:
+        #     take_profit_pips = round(price*(1+take_profit*sign), rounding)
         #     order_params["takeProfitOnFill"] = TakeProfitDetails(price=take_profit).data
         
 
@@ -333,10 +348,11 @@ class Oanda(object):
                     **order_params
                     )
 
-        sign = float(np.sign(units))
             
         endpoint = orders.OrderCreate(self.account_id, mkt_order.data)
         request_data = self.send_request(endpoint)
+        tradeID = request_data['orderCreateTransaction']['id']
+        
         price = float(request_data['orderFillTransaction']['price'])
         tradeID = request_data['lastTransactionID']
         instrument = request_data['orderCreateTransaction']['instrument']
@@ -362,7 +378,7 @@ class Oanda(object):
             take_profit_endpoint = orders.OrderCreate(self.account_id, take_profit_order.data)
             request_data = self.send_request(take_profit_endpoint)
             tradeID = request_data['orderCreateTransaction']['tradeID']
-
+        
         # check if request was fulfilled and save its ID
         if request_data is not 1:
             self.order_book[instrument]['tradeID'] = tradeID
@@ -479,7 +495,7 @@ class Oanda(object):
     def close_order(self, instrument):
 
         # check if position exist
-        if self.order_book[instrument]['order_type'] is None:
+        if not self.order_book[instrument]['order_type']:
             print('Position {} does not exist'.format(instrument))
             return 1
 
