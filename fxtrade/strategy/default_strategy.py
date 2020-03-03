@@ -1,6 +1,6 @@
 # pragma pylint: disable=missing-docstring, invalid-name, pointless-string-statement
 
-import talib.abstract as ta
+# import talib.abstract as ta
 from pandas import DataFrame
 
 import fxtrade.vendor.qtpylib.indicators as qtpylib

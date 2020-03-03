@@ -56,10 +56,10 @@ class Strategy(ABC):
             time.sleep(self.idle_time)
 
         # .action method can use collect() or extract_prices to extract other relevant time series
-        order_signal, actual_price = self.action(candles)
+        order_signal = self.action(candles)
         # order_signal should be 1 [buy] , -1 [sell], 0 [hold]
 
-        return current_time, order_signal, actual_price
+        return current_time, order_signal
 
     def extract_prices(self, candles, price_type='mid'):
         # price_type = price_type.capitalize()

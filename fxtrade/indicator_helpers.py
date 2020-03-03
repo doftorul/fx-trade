@@ -1,7 +1,7 @@
 from math import cos, exp, pi, sqrt
 
 import numpy as np
-import talib as ta
+# import talib as ta
 from pandas import Series
 
 
