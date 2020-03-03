@@ -28,12 +28,12 @@ Log other statistical data:
 
 ## ToDos
 
-[ ] - beautify logging
-[ ] - connect telegram commands with Oanda api
-[ ] - Parallelize currency processes
-[ ] - Define MACD strategies and other with techical indicators
+- [ ] beautify logging
+- [ ] connect telegram commands with Oanda api
+- [x] Parallelize currency processes
+- [ ] Define MACD strategies and other with techical indicators
 
 2nd stage
-[ ] - ML/TL training or statistical modeling
-[ ] - Integrate news feed with sentiment analysis/keyword detection
-[ ] - Test massively with lower granularity
+- [ ] ML/TL training or statistical modeling
+- [ ] Integrate news feed with sentiment analysis/keyword detection
+- [ ] Test massively with lower granularity
