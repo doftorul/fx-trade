@@ -15,7 +15,7 @@ from pandas import DataFrame
 
 from fxtrade import TemporaryError, DependencyException
 from fxtrade.misc import shorten_date
-from fxtrade.persistence import Trade
+#  from fxtrade.persistence import Trade
 from fxtrade.state import State
 from fxtrade.strategy.interface import SellType
 
@@ -386,7 +386,7 @@ class RPC(object):
         _exec_forcesell(trade)
         Trade.session.flush()
 
-    def _rpc_forcebuy(self, pair: str, price: Optional[float]) -> Optional[Trade]:
+    def _rpc_forcebuy(self, pair: str, price: Optional[float]):
         """
         Handler for forcebuy <asset> <price>
         Buys a pair trade at the given or current price
@@ -438,7 +438,7 @@ class RPC(object):
             for pair, rate, count in pair_rates
         ]
 
-    def _rpc_count(self) -> List[Trade]:
+    def _rpc_count(self):
         """ Returns the number of trades running """
         if self._fxtrade.state != State.RUNNING:
             raise RPCException('trader is not running')

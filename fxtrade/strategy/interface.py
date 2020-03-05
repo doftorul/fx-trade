@@ -15,7 +15,7 @@ from pandas import DataFrame
 
 # from fxtrade.data.dataprovider import DataProvider
 # from fxtrade.exchange.exchange_class import timeframe_to_minutes
-from fxtrade.persistence import Trade
+# from fxtrade.persistence import Trade
 from fxtrade.wallets import Wallets
 
 
@@ -242,7 +242,7 @@ class IStrategy(ABC):
         )
         return buy, sell
 
-    def should_sell(self, trade: Trade, rate: float, date: datetime, buy: bool,
+    def should_sell(self, trade, rate: float, date: datetime, buy: bool,
                     sell: bool, low: float = None, high: float = None,
                     force_stoploss: float = 0) -> SellCheckTuple:
         """
@@ -291,7 +291,7 @@ class IStrategy(ABC):
 
         return SellCheckTuple(sell_flag=False, sell_type=SellType.NONE)
 
-    def stop_loss_reached(self, current_rate: float, trade: Trade,
+    def stop_loss_reached(self, current_rate: float, trade,
                           current_time: datetime, current_profit: float,
                           force_stoploss: float, high: float = None) -> SellCheckTuple:
         """
@@ -360,7 +360,7 @@ class IStrategy(ABC):
         roi_entry = max(roi_list)
         return self.minimal_roi[roi_entry]
 
-    def min_roi_reached(self, trade: Trade, current_profit: float, current_time: datetime) -> bool:
+    def min_roi_reached(self, trade, current_profit: float, current_time: datetime) -> bool:
         """
         Based on trade duration, current price and ROI configuration, decides whether bot should
         sell. Requires current_profit to be in percent!!

@@ -1,4 +1,4 @@
-from strategies import Strategy
+from fxtrade.strategy.strategies import Strategy
 
 class DeepSense(Strategy):
     "DQN approach with DeepSense approximating Q function"

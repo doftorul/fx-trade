@@ -8,7 +8,7 @@ import time
 import traceback
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
-
+import itertools
 import arrow
 from requests.exceptions import RequestException
 
@@ -21,6 +21,7 @@ from fxtrade.state import State
 from fxtrade.strategy.interface import retrieve_strategy, Instrument
 from fxtrade.wallets import Portfolio
 from fxtrade.exchange.oanda import Oanda
+from fxtrade.persistence import Persistor
 from multiprocessing import Process, Pool
 from joblib import Parallel, delayed
 
@@ -57,6 +58,8 @@ class FXTradeBot(object):
 
         # Init bot states
         self.state = State.STOPPED
+
+        self.persistor = Persistor()
 
         # Init objects
         self.config = config
@@ -140,8 +143,14 @@ class FXTradeBot(object):
             })
 
             self_list = [self]*len(self.pairlists)
-            self.pairlists = Parallel(n_jobs= -1, backend="threading")(delayed(unwrap_self)(_self,p,s,f) for _self,p,s,f in zip(self_list, self.pairlists, self.strategies, funds))
+            results = Parallel(n_jobs= -1, backend="threading")(delayed(unwrap_self)(_self,p,s,f) for _self,p,s,f in zip(self_list, self.pairlists, self.strategies, funds))
 
+            self.pairlists = [r[0] for r in results]
+            closed_order_details = [r[1] for r in results]
+            open_order_details = list(itertools.chain.from_iterable([r[2] for r in results]))
+
+            self.persistor.store_opened(open_order_details)
+            self.persistor.store_closed(closed_order_details)
             # updated_pairlist = []
             # for p, s, f in zip(self.pairlists, self.strategies, funds):
             #     updated_pair = self._process(p,s,f)
@@ -158,6 +167,9 @@ class FXTradeBot(object):
         an action. 
         """
 
+        closed_order_details = {}
+        open_order_details = []
+
         if instrument.units:
             to_commit = instrument.units
 
@@ -172,10 +184,11 @@ class FXTradeBot(object):
             current_position = self.exchange.order_book[instrument.name]['order_type']
             if current_position != order_signal:
                 if current_position:
-                    self.exchange.close_order(instrument.name)
-                self.exchange.open_order(
+                    closed_order_details = self.exchange.close_order(instrument.name) #close an order if different order signal
+                
+                open_order_details = self.exchange.open_order(
                     instrument=instrument.name, 
-                    units=order_signal*to_commit, 
+                    units=order_signal*to_commit,
                     #price=actual_price, 
                     stop_loss=self.stop_loss, 
                     take_profit=self.take_profit
@@ -204,7 +217,7 @@ class FXTradeBot(object):
         else:
             instrument.units = to_commit
 
-        return instrument
+        return instrument, closed_order_details, open_order_details
 
     # def something(self):
 

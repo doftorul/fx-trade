@@ -32,7 +32,7 @@ from typing import List, Dict, Tuple, Any, Optional
 from pandas import DataFrame
 import numpy as np
 
-
+logging.getLogger("oandapyV20").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 granularity_dict = {
@@ -301,25 +301,25 @@ class Oanda(object):
 
         # check if position is already open
         if units < 0:
-            if self.order_book[instrument]['order_type'] is (not None and -1):
+            if self.order_book[instrument]['order_type'] == -1:
                 self.rpc.send_msg({
                 'type': RPCMessageType.HOLD_NOTIFICATION,
                 'status': '{} (Short) '.format(instrument)
                 })
-                return 1
+                return []
         elif units > 0:
-            if self.order_book[instrument]['order_type'] is (not None and 1):
+            if self.order_book[instrument]['order_type'] == 1:
                 self.rpc.send_msg({
                 'type': RPCMessageType.HOLD_NOTIFICATION,
                 'status': '{} (Long) '.format(instrument)
                 })
-                return 1
+                return []
         else:
             self.rpc.send_msg({
                 'type': RPCMessageType.HOLD_NOTIFICATION,
                 'status': '{} (Not traded)'.format(instrument)
                 })
-            return 1
+            return []
 
         client_extensions = {
             "comment": comment,
@@ -330,6 +330,8 @@ class Oanda(object):
         order_params = {
             "tradeClientExtensions" : client_extensions
         }
+
+        order_details = []
 
         sign = float(np.sign(units))
         rounding = 4 if instrument!="USD_JPY" else 2
@@ -351,13 +353,24 @@ class Oanda(object):
             
         endpoint = orders.OrderCreate(self.account_id, mkt_order.data)
         request_data = self.send_request(endpoint)
-        tradeID = request_data['orderCreateTransaction']['id']
+        # tradeID = request_data['orderCreateTransaction']['id']
         
         price = float(request_data['orderFillTransaction']['price'])
         tradeID = request_data['lastTransactionID']
         instrument = request_data['orderCreateTransaction']['instrument']
 
-        rounding = 4 if instrument!="USD_JPY" else 2
+        order_details.append(
+            {
+                "instrument" : instrument,
+                "tradeID" : tradeID,
+                "batchID" : request_data['orderCreateTransaction']['batchID'],
+                "price" : price,
+                "type" : "SHORT" if units < 0 else "LONG",
+                "time" : request_data['orderCreateTransaction']['time'][:19]
+            }
+        )
+
+        rounding = 4 if not instrument.endswith("_JPY") else 2
         # define stop loss
         if stop_loss:
             stop_loss_pips = round(price*(1-stop_loss*sign), rounding)
@@ -368,6 +381,17 @@ class Oanda(object):
             stop_loss_endpoint = orders.OrderCreate(self.account_id, stop_loss_order.data)
             request_data = self.send_request(stop_loss_endpoint)
             tradeID = request_data['orderCreateTransaction']['tradeID']
+            # tradeID = request_data['lastTransactionID']
+            order_details.append(
+                {
+                    "instrument" : instrument,
+                    "tradeID" : tradeID,
+                    "batchID" : request_data['orderCreateTransaction']['batchID'],
+                    "price" : request_data['orderCreateTransaction']['price'],
+                    "type" : "STOP_LOSS",
+                    "time" : request_data['orderCreateTransaction']['time'][:19]
+                }
+            )
         # define take profit
         if take_profit:
             take_profit_pips = round(price*(1+take_profit*sign), rounding)
@@ -378,6 +402,17 @@ class Oanda(object):
             take_profit_endpoint = orders.OrderCreate(self.account_id, take_profit_order.data)
             request_data = self.send_request(take_profit_endpoint)
             tradeID = request_data['orderCreateTransaction']['tradeID']
+            # tradeID = request_data['lastTransactionID']
+            order_details.append(
+                {
+                    "instrument" : instrument,
+                    "tradeID" : tradeID,
+                    "batchID" : request_data['orderCreateTransaction']['batchID'],
+                    "price" : request_data['orderCreateTransaction']['price'],
+                    "type" : "TAKE_PROFIT",
+                    "time" : request_data['orderCreateTransaction']['time'][:19]
+                }
+            )
         
         # check if request was fulfilled and save its ID
         if request_data is not 1:
@@ -402,7 +437,7 @@ class Oanda(object):
                 'stop_loss' : stop_loss_pips
                 })
 
-            return 0
+            return order_details
         else:
             return 1
 
@@ -500,7 +535,8 @@ class Oanda(object):
             return 1
 
         # create and send a request
-        r = trades.TradeClose(accountID=self.account_id, tradeID=self.order_book[instrument]['tradeID'])
+        tradeID=self.order_book[instrument]['tradeID']
+        r = trades.TradeClose(accountID=self.account_id, tradeID=tradeID)
         request_data = self.send_request(r)
 
         # check if request was fulfilled and clear it
@@ -508,8 +544,16 @@ class Oanda(object):
             instrument = request_data['orderCreateTransaction']['instrument']
             self.order_book[instrument]['order_type'] = None
             self.order_book[instrument]['tradeID'] = None
-            print('Closed: {}'.format(instrument))
-            return 0
+            logger.info('Closed: {}'.format(instrument))
+            order_closed_details = {
+                "PL" : request_data["orderFillTransaction"]["pl"],
+                "instrument" : request_data["orderFillTransaction"]["instrument"],
+                "balance" : request_data["orderFillTransaction"]["accountBalance"],
+                "time" : request_data["orderFillTransaction"]["time"][:19],
+                "position" : "SHORT" if int(request_data["orderCreateTransaction"]["units"]) < 0 else "LONG",
+                "tradeID" : tradeID,
+            }
+            return order_closed_details
         else:
             return 1
 

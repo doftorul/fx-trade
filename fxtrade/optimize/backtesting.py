@@ -20,7 +20,7 @@ from fxtrade.configuration import Configuration
 from fxtrade.exchange.oanda import Oanda
 from fxtrade.data import history
 from fxtrade.misc import file_dump_json
-from fxtrade.persistence import Trade
+# from fxtrade.persistence import Trade
 from fxtrade.resolvers import StrategyResolver
 from fxtrade.state import RunMode
 from fxtrade.strategy.interface import SellType, IStrategy
