@@ -149,6 +149,15 @@ class FXTradeBot(object):
             closed_order_details = [r[1] for r in results]
             open_order_details = list(itertools.chain.from_iterable([r[2] for r in results]))
 
+            closed_order_details = [c for c in closed_order_details if c]
+            open_order_details = [o for o in open_order_details if o]
+
+            # closed_order_details = sorted(closed_order_details, key=lambda k: datetime.strptime(k['time'],'%Y-%m-%dT%H:%M:%S'))
+            # open_order_details = sorted(open_order_details, key=lambda k: datetime.strptime(k['time'], '%Y-%m-%dT%H:%M:%S'))
+            closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
+            open_order_details = sorted(open_order_details, key=lambda k: k['time'])
+
+
             self.persistor.store_opened(open_order_details)
             self.persistor.store_closed(closed_order_details)
             # updated_pairlist = []

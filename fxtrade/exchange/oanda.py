@@ -59,6 +59,8 @@ granularity_dict = {
     2592000 : "M"
 }
 
+def to_datetime(s):
+    return datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f')
 
 class Oanda(object):
     """
@@ -366,7 +368,7 @@ class Oanda(object):
                 "batchID" : request_data['orderCreateTransaction']['batchID'],
                 "price" : price,
                 "type" : "SHORT" if units < 0 else "LONG",
-                "time" : request_data['orderCreateTransaction']['time'][:19]
+                "time" : to_datetime(request_data['orderCreateTransaction']['time'][:-4])
             }
         )
 
@@ -389,7 +391,7 @@ class Oanda(object):
                     "batchID" : request_data['orderCreateTransaction']['batchID'],
                     "price" : request_data['orderCreateTransaction']['price'],
                     "type" : "STOP_LOSS",
-                    "time" : request_data['orderCreateTransaction']['time'][:19]
+                    "time" : to_datetime(request_data['orderCreateTransaction']['time'][:-4])
                 }
             )
         # define take profit
@@ -410,7 +412,7 @@ class Oanda(object):
                     "batchID" : request_data['orderCreateTransaction']['batchID'],
                     "price" : request_data['orderCreateTransaction']['price'],
                     "type" : "TAKE_PROFIT",
-                    "time" : request_data['orderCreateTransaction']['time'][:19]
+                    "time" : to_datetime(request_data['orderCreateTransaction']['time'][:-4])
                 }
             )
         
@@ -549,7 +551,7 @@ class Oanda(object):
                 "PL" : request_data["orderFillTransaction"]["pl"],
                 "instrument" : request_data["orderFillTransaction"]["instrument"],
                 "balance" : request_data["orderFillTransaction"]["accountBalance"],
-                "time" : request_data["orderFillTransaction"]["time"][:19],
+                "time" : to_datetime(request_data["orderFillTransaction"]["time"][:-4]),
                 "position" : "SHORT" if int(request_data["orderCreateTransaction"]["units"]) < 0 else "LONG",
                 "tradeID" : tradeID,
             }

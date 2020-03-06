@@ -12,7 +12,7 @@ class Closed(Model):
     position = CharField()
     profit = FloatField()
     balance = FloatField()
-    time = TimeField()
+    time = DateTimeField()
 
     class Meta:
         database = proxy
@@ -23,7 +23,7 @@ class Opened(Model):
     instrument = CharField()
     price = FloatField()
     position = CharField()
-    time = TimeField()
+    time = DateTimeField()
 
     class Meta:
         database = proxy
@@ -31,28 +31,30 @@ class Opened(Model):
 class Persistor(object):
     def __init__(self):
 
-        name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
-        data_dir =  os.path.join(PERSISTENCE_DIR, name)
+        # name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
+        self.database_name = 'database.db'
+        self.data_dir =  os.path.join(PERSISTENCE_DIR, self.database_name)
 
-        database = SqliteDatabase(data_dir)
-        # database.connect()
-        proxy.initialize(database)
-        database.create_tables([Opened, Closed])
-        # database.close()
+        if not os.path.exists(self.data_dir):
+            database = SqliteDatabase(self.data_dir)
+            # database.connect()
+            proxy.initialize(database)
+            database.create_tables([Opened, Closed])
+            # database.close()
             
 
     def store_closed(self, data):
 
-        name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
-        data_dir =  os.path.join(PERSISTENCE_DIR, name)
+        # name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
+        # data_dir =  os.path.join(PERSISTENCE_DIR, name)
 
-        if not os.path.exists(data_dir):
-            database = SqliteDatabase(data_dir)
-            proxy.initialize(database)
-            database.create_tables([Opened, Closed], safe=True)
-        else:
-            database = SqliteDatabase(data_dir)
-            proxy.initialize(database)
+        # if not os.path.exists(data_dir):
+        #     database = SqliteDatabase(data_dir)
+        #     proxy.initialize(database)
+        #     database.create_tables([Opened, Closed], safe=True)
+        # else:
+        database = SqliteDatabase(self.data_dir)
+        proxy.initialize(database)
 
         with proxy.atomic():
             for d in data:
@@ -63,21 +65,21 @@ class Persistor(object):
                         position = d["position"],
                         profit = d["PL"],
                         balance = d["balance"],
-                        time = d["time"].replace("T", " "),
+                        time = d["time"]#.replace("T", " "),
                         ).save()
         
         
     def store_opened(self, data):
-        name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
-        data_dir =  os.path.join(PERSISTENCE_DIR, name)
+        # name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
+        # data_dir =  os.path.join(PERSISTENCE_DIR, name)
 
-        if not os.path.exists(data_dir):
-            database = SqliteDatabase(data_dir)
-            proxy.initialize(database)
-            database.create_tables([Opened, Closed], safe=True)
-        else:
-            database = SqliteDatabase(data_dir)
-            proxy.initialize(database)
+        # if not os.path.exists(data_dir):
+        #     database = SqliteDatabase(data_dir)
+        #     proxy.initialize(database)
+        #     database.create_tables([Opened, Closed], safe=True)
+        # else:
+        database = SqliteDatabase(self.data_dir)
+        proxy.initialize(database)
 
         with proxy.atomic():
             for d in data:
@@ -88,7 +90,7 @@ class Persistor(object):
                         instrument = d["instrument"],
                         price = d["price"],
                         position = d["type"],
-                        time = d["time"].replace("T", " "),
+                        time = d["time"]#.replace("T", " "),
                         ).save()
 
 
