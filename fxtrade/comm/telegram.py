@@ -10,7 +10,7 @@ from tabulate import tabulate
 from telegram import Bot, ParseMode, ReplyKeyboardMarkup, Update
 from telegram.error import NetworkError, TelegramError
 from telegram.ext import CommandHandler, Updater
-
+import datetime
 from fxtrade.__init__ import __version__
 from fxtrade.comm.rpc import RPC, RPCException, RPCMessageType
 
@@ -77,13 +77,14 @@ class Telegram(RPC):
 
         # Register command handler and start telegram message polling
         handles = [
+            CommandHandler('profit', self._profit),
+            CommandHandler('report', self._report),
+            CommandHandler('help', self._help),
             CommandHandler('start', self._start),
             CommandHandler('stop', self._stop),
             CommandHandler('closeall', self._close_all),
-            CommandHandler('report', self._report),
-            CommandHandler('reload_conf', self._reload_conf),
-            CommandHandler('whitelist', self._whitelist),
-            CommandHandler('help', self._help),
+            CommandHandler('reload', self._reload_conf),
+            CommandHandler('pairs', self._whitelist),
         ]
         for handle in handles:
             self._updater.dispatcher.add_handler(handle)
@@ -187,51 +188,93 @@ class Telegram(RPC):
         :param update: message update
         :return: None
         """
-        stake_cur = self._config['stake_currency']
-        fiat_disp_cur = self._config.get('fiat_display_currency', '')
+
+        date = update.message.text.replace('/report', '').strip()
+        report_date = datetime.datetime.utcnow().date()
+
+        if date:
+            date_elements = date.split()
+            try:
+                if len(date_elements) == 1:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0])
+                        )
+                if len(date_elements) == 2:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0]), 
+                        month=int(date_elements[1])
+                        )
+                if len(date_elements) == 3:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0]), 
+                        month=int(date_elements[1]), 
+                        year=int(date_elements[2])
+                        )
+            except:
+                pass
+            
         try:
-            timescale = int(update.message.text.replace('/daily', '').strip())
-        except (TypeError, ValueError):
-            timescale = 7
-        try:
-            stats = self._rpc_report(
-                timescale,
-                stake_cur,
-                fiat_disp_cur
-            )
+            stats = self._rpc_report(report_date)
             stats_tab = tabulate(stats,
                                  headers=[
-                                     'Day',
-                                     f'Profit {stake_cur}',
-                                     f'Profit {fiat_disp_cur}'
+                                     'Asset',
+                                     'P/L',
+                                     'Balance'
                                  ],
-                                 tablefmt='simple')
-            message = f'<b>Daily Profit over the last {timescale} days</b>:\n<pre>{stats_tab}</pre>'
+                                 floatfmt=".4f")
+            message = f'<b>Daily report - {report_date.day}/{report_date.month}/{report_date.year} </b>:\n<pre>{stats_tab}</pre>'
+            print(message)
             self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
         except RPCException as e:
             self._send_msg(str(e), bot=bot)
 
-    
-    @authorized_only
-    def _balance(self, bot: Bot, update: Update) -> None:
-        """ Handler for /balance """
-        try:
-            result = self._rpc_balance(self._config.get('fiat_display_currency', ''))
-            output = ''
-            for currency in result['currencies']:
-                if currency['est_btc'] > 0.0001:
-                    output += "*{currency}:*\n" \
-                            "\t`Available: {available: .8f}`\n" \
-                            "\t`Balance: {balance: .8f}`\n" \
-                            "\t`Pending: {pending: .8f}`\n" \
-                            "\t`Est. BTC: {est_btc: .8f}`\n".format(**currency)
-                else:
-                    output += "*{currency}:* not showing <1$ amount \n".format(**currency)
 
-            output += "\n*Estimated Value*:\n" \
-                      "\t`BTC: {total: .8f}`\n" \
-                      "\t`{symbol}: {value: .2f}`\n".format(**result)
-            self._send_msg(output, bot=bot)
+    @authorized_only
+    def _profit(self, bot: Bot, update: Update) -> None:
+        """
+        Handler for /daily <n>
+        Returns a daily profit for the current day, or specify the date
+        by inputing "/report DD MM YYYY"
+        :param bot: telegram bot
+        :param update: message update
+        :return: None
+        """
+
+        date = update.message.text.replace('/profit', '').strip()
+        report_date = datetime.datetime.utcnow().date()
+
+        if date:
+            date_elements = date.split()
+            try:
+                if len(date_elements) == 1:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0])
+                        )
+                if len(date_elements) == 2:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0]), 
+                        month=int(date_elements[1])
+                        )
+                if len(date_elements) == 3:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0]), 
+                        month=int(date_elements[1]), 
+                        year=int(date_elements[2])
+                        )
+            except:
+                pass
+            
+        try:
+            stats = self._rpc_profit(report_date)
+
+            stats_tab = tabulate(stats,
+                                 headers=[
+                                     'Asset',
+                                     'Overall P/L',
+                                 ],
+                                 floatfmt=".4f")
+            message = f'<b>Daily statistics - {report_date.day}/{report_date.month}/{report_date.year} </b>:\n<pre>{stats_tab}</pre>'
+            self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
         except RPCException as e:
             self._send_msg(str(e), bot=bot)
 
@@ -290,13 +333,16 @@ class Telegram(RPC):
         Shows the currently active whitelist
         """
         try:
-            whitelist = self._rpc_whitelist()
+            stats = self._rpc_whitelist()
 
-            message = f"Using whitelist `{whitelist['method']}` with {whitelist['length']} pairs\n"
-            message += f"`{', '.join(whitelist['whitelist'])}`"
-
-            logger.debug(message)
-            self._send_msg(message)
+            stats_tab = tabulate(stats,
+                                 headers=[
+                                     'Asset',
+                                     'Live',
+                                 ],
+                                 floatfmt=".4f")
+            message = f'<b>Pairs traded </b>:\n<pre>{stats_tab}</pre>'
+            self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
         except RPCException as e:
             self._send_msg(str(e), bot=bot)
 
@@ -312,9 +358,10 @@ class Telegram(RPC):
         message = "*/start:* `Starts the trader`\n" \
                   "*/stop:* `Stops the trader`\n" \
                   "*/closeall:* `Closes all the open trades`\n" \
-                  "*/report [DD MM YYYY]:* `Shows profit or loss per day`\n" \
-                  "*/reload_conf:* `Reload configuration file` \n" \
-                  "*/whitelist:* `Show current tradeable pairs` \n" \
+                  "*/report [DD MM YYYY]:* `Shows detailed P/L per day`\n" \
+                  "*/profit [DD MM YYYY]:* `Shows statistics for each pair per day`\n" \
+                  "*/reload:* `Reload configuration file` \n" \
+                  "*/pairs:* `Show current tradeable pairs` \n" \
                   "*/help:* `This help message`\n" \
 
         self._send_msg(message, bot=bot)
@@ -331,9 +378,9 @@ class Telegram(RPC):
         """
         bot = bot or self._updater.bot
 
-        keyboard = [['/report', '/profit', '/balance'],
-                    ['/status', '/status table', '/performance'],
-                    ['/closeall', '/start', '/stop', '/help']]
+        keyboard = [['/profit', '/report', '/help'],
+                    ['/start', '/stop', '/closeall'],
+                    ['/reload', '/pairs']]
 
         reply_markup = ReplyKeyboardMarkup(keyboard)
 

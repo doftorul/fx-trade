@@ -94,3 +94,23 @@ class Persistor(object):
                         ).save()
 
 
+    def retrieve_closed_trade_by_date(self, date):
+        # data is a datetime.date object datetime.date(YYYY, MM, )
+        database = SqliteDatabase(self.data_dir)
+        proxy.initialize(database)
+        with proxy.atomic():
+            result = list(Closed\
+                .select(
+                    Closed.instrument, 
+                    Closed.position, 
+                    Closed.profit, 
+                    Closed.time, 
+                    Closed.balance
+                    )\
+                .where(
+                    (Closed.time.day == date.day) & 
+                    (Closed.time.year == date.year) & 
+                    (Closed.time.month == date.month)
+                    )
+                )
+        return result

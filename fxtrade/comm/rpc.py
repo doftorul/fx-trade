@@ -4,20 +4,16 @@ This module contains class to define a RPC communications
 import logging
 from abc import abstractmethod
 from datetime import timedelta, datetime, date
-from decimal import Decimal
 from enum import Enum
 from typing import Dict, Any, List, Optional
 
-import arrow
-import sqlalchemy as sql
-from numpy import mean, nan_to_num, NAN
+import numpy as np
 from pandas import DataFrame
 
-from fxtrade import TemporaryError, DependencyException
-from fxtrade.misc import shorten_date
 #  from fxtrade.persistence import Trade
 from fxtrade.state import State
-from fxtrade.strategy.interface import SellType
+from fxtrade.persistence import Persistor
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +60,7 @@ class RPC(object):
         :return: None
         """
         self._fxtrade = fxtrade
+        self._persistor = Persistor()
 
     @property
     def name(self) -> str:
@@ -79,33 +76,33 @@ class RPC(object):
         """ Sends a message to all registered rpc modules """
 
 
-    def _rpc_report(
-            self, timescale: int,
-            stake_currency: str, fiat_display_currency: str) -> List[List[Any]]:
-        today = datetime.utcnow().date()
+    def _rpc_report(self, report_date) -> List[List[Any]]:
+        
+        
+        results = self._persistor.retrieve_closed_trade_by_date(report_date)
 
         return [
             [
-                key,
-                '{value:.8f} {symbol}'.format(
-                    value=float(value['amount']),
-                    symbol=stake_currency
-                ),
-                '{value:.3f} {symbol}'.format(
-                    value=self._fiat_converter.convert_amount(
-                        value['amount'],
-                        stake_currency,
-                        fiat_display_currency
-                    ) if self._fiat_converter else 0,
-                    symbol=fiat_display_currency
-                ),
-                '{value} trade{s}'.format(
-                    value=value['trades'],
-                    s='' if value['trades'] < 2 else 's'
-                ),
+                result.instrument,
+                result.profit,
+                result.balance
             ]
-            for key, value in profit_days.items()
+            for result in results
         ]
+
+    def _rpc_profit(self, report_date) -> List[List[Any]]:
+        
+        
+        results = self._persistor.retrieve_closed_trade_by_date(report_date)
+
+        profits = {}
+
+        for result in results:
+            if result.instrument not in profits:
+                profits[result.instrument] = 0.
+            profits[result.instrument] += result.profit
+
+        return [[k,v] for k,v in profits.items()]
 
 
     def _rpc_start(self) -> Dict[str, str]:
@@ -137,8 +134,6 @@ class RPC(object):
 
     def _rpc_whitelist(self) -> Dict:
         """ Returns the currently active whitelist"""
-        res = {'method': self._fxtrade.pairlists.name,
-               'length': len(self._fxtrade.pairlists.whitelist),
-               'whitelist': self._fxtrade.active_pair_whitelist
-               }
-        return res
+        return [
+            [p.name, p.units] for p in self._fxtrade.pairlists
+        ]
