@@ -6,7 +6,7 @@ from typing import Any,  Dict
 
 from requests import post, RequestException
 
-from fxtrade.rpc import RPC, RPCMessageType
+from fxtrade.comm.rpc import RPC, RPCException, RPCMessageType
 
 
 logger = logging.getLogger(__name__)

@@ -356,9 +356,14 @@ class Oanda(object):
         endpoint = orders.OrderCreate(self.account_id, mkt_order.data)
         request_data = self.send_request(endpoint)
         # tradeID = request_data['orderCreateTransaction']['id']
+
+        # create_id = request_data['orderCreateTransaction']['id']
+        # logger.info("create_id: {}".format(create_id))
+
         
         price = float(request_data['orderFillTransaction']['price'])
         tradeID = request_data['lastTransactionID']
+        # logger.info("trade_id: {}".format(tradeID))
         instrument = request_data['orderCreateTransaction']['instrument']
 
         order_details.append(

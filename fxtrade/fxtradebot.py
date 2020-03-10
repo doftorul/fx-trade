@@ -228,6 +228,22 @@ class FXTradeBot(object):
 
         return instrument, closed_order_details, open_order_details
 
+
+    def close_all_orders(self):
+        self.exchange.sync_with_oanda()
+        closed_order_details = []
+
+        for instrument in self.exchange.order_book:
+            if self.exchange.order_book[instrument]['order_type']:
+                closed_order_details.append(self.exchange.close_order(instrument))
+
+        closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
+        self.persistor.store_closed(closed_order_details)
+        # self.rpc.send_msg({
+        #     'type' : RPCMessageType.CUSTOM_NOTIFICATION,
+        #     'status' : "*Closing* all orders..."
+        # })
+
     # def something(self):
 
     #     self.rpc.send_msg({
