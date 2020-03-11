@@ -214,7 +214,8 @@ class Telegram(RPC):
                 pass
             
         try:
-            stats = self._rpc_report(report_date)
+            # stats = self._rpc_report(report_date)
+            stats = self._rpc_closed_activity(report_date)
             stats_tab = tabulate(stats,
                                  headers=[
                                      'Asset',
@@ -223,7 +224,6 @@ class Telegram(RPC):
                                  ],
                                  floatfmt=".4f")
             message = f'<b>Daily report - {report_date.day}/{report_date.month}/{report_date.year} </b>:\n<pre>{stats_tab}</pre>'
-            print(message)
             self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
         except RPCException as e:
             self._send_msg(str(e), bot=bot)
@@ -265,7 +265,7 @@ class Telegram(RPC):
                 pass
             
         try:
-            stats = self._rpc_profit(report_date)
+            stats = self._rpc_closed_profit(report_date)
 
             stats_tab = tabulate(stats,
                                  headers=[

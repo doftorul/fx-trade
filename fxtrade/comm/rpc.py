@@ -76,7 +76,7 @@ class RPC(object):
         """ Sends a message to all registered rpc modules """
 
 
-    def _rpc_report(self, report_date) -> List[List[Any]]:
+    def _rpc_persisted_report(self, report_date) -> List[List[Any]]:
         
         
         results = self._persistor.retrieve_closed_trade_by_date(report_date)
@@ -90,7 +90,7 @@ class RPC(object):
             for result in results
         ]
 
-    def _rpc_profit(self, report_date) -> List[List[Any]]:
+    def _rpc_persisted_profit(self, report_date) -> List[List[Any]]:
         
         
         results = self._persistor.retrieve_closed_trade_by_date(report_date)
@@ -104,6 +104,79 @@ class RPC(object):
 
         return [[k,v] for k,v in profits.items()]
 
+
+    def _rpc_closed_activity(self, report_date) -> List[List[Any]]:
+        
+        datestring = report_date.strftime("%Y-%m-%d")
+
+        _from = datestring+"T00:00:00.000000000Z"
+        _to = datestring+"T23:59:59.999999999Z"
+        
+        result = self._fxtrade.exchange.transactions_list(_from=_from, _to=_to)
+
+        transactions = result["transactions"] if result else []
+
+
+        closed_trades = []
+
+        for transaction in transactions:
+            if ((transaction.get("reason", "") == "MARKET_ORDER_TRADE_CLOSE") or
+                ((transaction.get("type", "") == "ORDER_FILL") and
+                 (transaction.get("reason", "") == "STOP_LOSS_ORDER")) or 
+                ((transaction.get("type", "") == "ORDER_FILL") and
+                 (transaction.get("reason", "") == "TAKE_PROFIT_ORDER"))):
+                closed_trades.append(
+                    [
+                        transaction["instrument"],
+                        transaction["pl"],
+                        transaction["accountBalance"]
+
+                    ]
+                )
+            if transaction.get("type", "") == "DAILY_FINANCING":
+                closed_trades.append(
+                    [
+                        "DAILY_FEE",
+                        transaction["financing"],
+                        transaction["accountBalance"]
+
+                    ]
+                )
+
+        return closed_trades
+
+    def _rpc_closed_profit(self, report_date) -> List[List[Any]]:
+        
+        
+        datestring = report_date.strftime("%Y-%m-%d")
+
+        _from = datestring+"T00:00:00.000000000Z"
+        _to = datestring+"T23:59:59.999999999Z"
+        
+        result = self._fxtrade.exchange.transactions_list(_from=_from, _to=_to)
+
+        transactions = result["transactions"] if result else []
+
+
+        profits = {}
+
+        for transaction in transactions:
+            if ((transaction.get("reason", "") == "MARKET_ORDER_TRADE_CLOSE") or
+                ((transaction.get("type", "") == "ORDER_FILL") and
+                 (transaction.get("reason", "") == "STOP_LOSS_ORDER")) or 
+                ((transaction.get("type", "") == "ORDER_FILL") and
+                 (transaction.get("reason", "") == "TAKE_PROFIT_ORDER"))):
+                
+                if transaction["instrument"] not in profits:
+                    profits[transaction["instrument"]] = 0.
+                profits[transaction["instrument"]] += float(transaction["pl"])
+
+            if transaction.get("type", "") == "DAILY_FINANCING":
+                if "DAILY_FEE" not in profits:
+                    profits["DAILY_FEE"] = 0.
+                profits["DAILY_FEE"] += float(transaction["financing"])
+
+        return [[k,v] for k,v in profits.items()]
 
     def _rpc_start(self) -> Dict[str, str]:
         """ Handler for start """

@@ -19,6 +19,8 @@ import oandapyV20.endpoints.forexlabs as forexlabs
 import oandapyV20.endpoints.positions as positions
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.accounts as accounts
+import oandapyV20.endpoints.transactions as transactions
+
 from oandapyV20.contrib.requests import (
     MarketOrderRequest,
     TakeProfitDetails,
@@ -569,3 +571,29 @@ class Oanda(object):
 
     def trades_list(self, params={}):
         pass
+
+    """ Transactions """
+
+    def transactions_list(self, _from, _to):
+
+        params = {"from":_from, "to":_to}
+
+        r = transactions.TransactionList(accountID=self.account_id, params=params)
+        request_data = self.send_request(r)
+
+        transactions_ids = request_data["pages"]
+
+        if transactions_ids:
+            start = transactions_ids[0].split("from=")[-1].split("&")[0]
+            end = transactions_ids[-1].split("to=")[-1]
+
+            params = {"from":int(start), "to":int(end)}
+
+            r = transactions.TransactionIDRange(accountID=self.account_id, params=params)
+            request_data = self.send_request(r)
+
+            return request_data
+
+        else:
+            return []
+
