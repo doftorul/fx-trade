@@ -12,7 +12,7 @@
         "sell": 30
     },
     "strategy": {
-        "name": "Random",
+        "name": "MACD",
         "params": {
             "idle_time" : 5,
             "granularity": 60,

@@ -9,12 +9,10 @@ import traceback
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 import itertools
-import arrow
 from requests.exceptions import RequestException
 
 from fxtrade import (DependencyException, OperationalException,
-                       TemporaryError, __version__, constants, persistence)
-from fxtrade.data.converter import order_book_to_dataframe
+                       TemporaryError, __version__)
 from fxtrade.comm.rpc_manager import RPCManager
 from fxtrade.comm.rpc import RPCMessageType
 from fxtrade.state import State
@@ -44,7 +42,7 @@ class FXTradeBot(object):
     This is from here the bot start its logic.
     """
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: Dict[str, Any], init_id=None) -> None:
         """
         Init all variables and objects the bot needs to work
         :param config: configuration dict, you can use Configuration.get_config()
@@ -73,6 +71,14 @@ class FXTradeBot(object):
         self.rpc: RPCManager = RPCManager(self)
 
         self.exchange = Oanda(self.config, self.rpc)
+
+        
+        # get last transaction id from database
+        self.since_id = self.persistor.get_last_transaction_id() if not init_id else init_id
+
+        self.update_transactions_every = 5
+
+        self.running_epoch = 0
 
         # Attach Dataprovider to Strategy baseclass
         # IStrategy.dp = self.dataprovider
@@ -114,7 +120,7 @@ class FXTradeBot(object):
         logger.info('Cleaning up modules ...')
         self.rpc.cleanup()
 
-    def worker(self, old_state: State = None, idle: int = constants.PROCESS_THROTTLE_SECS) -> State:
+    def worker(self, old_state: State = None) -> State:
         """
         Trading routine that must be run at each loop
         :param old_state: the previous service state from the previous call
@@ -146,28 +152,37 @@ class FXTradeBot(object):
             results = Parallel(n_jobs= -1, backend="threading")(delayed(unwrap_self)(_self,p,s,f) for _self,p,s,f in zip(self_list, self.pairlists, self.strategies, funds))
 
             self.pairlists = [r[0] for r in results]
-            closed_order_details = [r[1] for r in results]
-            open_order_details = list(itertools.chain.from_iterable([r[2] for r in results]))
-            decisions = [r[3] for r in results]
+            # closed_order_details = [r[1] for r in results]
+            open_order_details = list(itertools.chain.from_iterable([r[1] for r in results]))
+            decisions = [r[2] for r in results]
 
-            closed_order_details = [c for c in closed_order_details if c]
+            # closed_order_details = [c for c in closed_order_details if c]
             open_order_details = [o for o in open_order_details if o]
 
             # closed_order_details = sorted(closed_order_details, key=lambda k: datetime.strptime(k['time'],'%Y-%m-%dT%H:%M:%S'))
             # open_order_details = sorted(open_order_details, key=lambda k: datetime.strptime(k['time'], '%Y-%m-%dT%H:%M:%S'))
-            closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
+            # closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
             open_order_details = sorted(open_order_details, key=lambda k: k['time'])
             decisions = sorted(decisions, key=lambda k: k['time'])
 
 
             self.persistor.store_opened(open_order_details)
-            self.persistor.store_closed(closed_order_details)
+            # self.persistor.store_closed(closed_order_details)
             self.persistor.store_decisions(decisions)
             # updated_pairlist = []
             # for p, s, f in zip(self.pairlists, self.strategies, funds):
             #     updated_pair = self._process(p,s,f)
             #     updated_pairlist.append(updated_pair)
             #self.pairlists = updated_pairlist
+
+
+        if not self.running_epoch % self.update_transactions_every: 
+
+            transactions_list = self.exchange.transactions_since_id(self.since_id)
+            self.since_id = self.persistor.store_transactions(transactions_list)
+
+
+        self.running_epoch += 1
 
         return state
 
@@ -179,7 +194,7 @@ class FXTradeBot(object):
         an action. 
         """
 
-        closed_order_details = {}
+        # closed_order_details = {}
         open_order_details = []
 
         if instrument.units:
@@ -204,7 +219,7 @@ class FXTradeBot(object):
             current_position = self.exchange.order_book[instrument.name]['order_type']
             if current_position != order_signal:
                 if current_position:
-                    closed_order_details = self.exchange.close_order(instrument.name) #close an order if different order signal
+                    _ = self.exchange.close_order(instrument.name) #close an order if different order signal
                 
                 open_order_details = self.exchange.open_order(
                     instrument=instrument.name, 
@@ -221,7 +236,7 @@ class FXTradeBot(object):
             })
         except Exception as error:
             traceback.print_exc()
-            logger.warning(f"Error: {error}, retrying in {constants.RETRY_TIMEOUT} seconds...")
+            logger.warning(f"Error: {error}")
             
             # tb = traceback.format_exc()
             # hint = 'Issue `/start` if you think it is safe to restart.'
@@ -237,19 +252,19 @@ class FXTradeBot(object):
         else:
             instrument.units = to_commit
 
-        return instrument, closed_order_details, open_order_details, decision
+        return instrument, open_order_details, decision
 
 
     def close_all_orders(self):
         self.exchange.sync_with_oanda()
-        closed_order_details = []
 
         for instrument in self.exchange.order_book:
             if self.exchange.order_book[instrument]['order_type']:
-                closed_order_details.append(self.exchange.close_order(instrument))
+                self.exchange.close_order(instrument)
 
-        closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
-        self.persistor.store_closed(closed_order_details)
+        transactions_list = self.exchange.transactions_since_id(self.since_id)
+        self.since_id = self.persistor.store_transactions(transactions_list)
+
         # self.rpc.send_msg({
         #     'type' : RPCMessageType.CUSTOM_NOTIFICATION,
         #     'status' : "*Closing* all orders..."

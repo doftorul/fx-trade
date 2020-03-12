@@ -1,10 +1,7 @@
 from fxtrade import constants, OperationalException, DependencyException, TemporaryError
 from fxtrade.comm.rpc import RPCMessageType, RPC, RPCException
-from fxtrade.data.converter import parse_ticker_dataframe
 from tabulate import tabulate
-import arrow
 
-import inspect
 from random import randint
 
 from datetime import datetime
@@ -215,7 +212,7 @@ class Oanda(object):
         ):
 
         #granularity input is given as a number  [seconds] 
-        #or as a string following libs.utils.granularity_dict values
+        #or as a string following granularity_dict values
         """
         Returns a list of candles, each candle is a dictionary:
             {
@@ -579,7 +576,7 @@ class Oanda(object):
 
     def transactions_list(self, _from, _to):
 
-        params = {"from":_from, "to":_to}
+        params = {"from":_from, "to":_to, "pageSize":1000}
 
         r = transactions.TransactionList(accountID=self.account_id, params=params)
         request_data = self.send_request(r)
@@ -599,4 +596,14 @@ class Oanda(object):
 
         else:
             return []
+
+    
+    def transactions_since_id(self, _id):
+
+        params = {"id":_id}
+
+        r = transactions.TransactionsSinceID(accountID=self.account_id, params=params)
+        request_data = self.send_request(r)
+
+        return request_data
 

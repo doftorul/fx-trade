@@ -2,6 +2,9 @@ import random
 import numpy as np
 from abc import ABC, abstractmethod
 import time
+from fxtrade.strategy.interface import Strategy
+import pandas as pd
+from pyti.exponential_moving_average import exponential_moving_average as ema
 
 """
 there are a number of strategy types to inform the design of your algorithmic trading robot. 
@@ -16,68 +19,6 @@ The market microstructure (e.g. arbitrage or trade infrastructure)
 
 Investopedia https://www.investopedia.com/articles/active-trading/081315/how-code-your-own-algo-trading-robot.asp#ixzz5YcW8c3zA 
 """
-
-class Strategy(ABC):
-    def __init__(self, api, instrument, **kwargs):
-        self.api = api
-        self.instrument = instrument.name
-        self.granularity = kwargs.get("granularity", 60)
-        self.count = kwargs.get("count", 50)
-        self.idle_time = min(kwargs.get("idle_time", 5), self.granularity/10) #assert idle time for polling the server is one order of magnitude lower than granularity
-
-    
-    def collect(self, granularity=None, count=None, price="MBA"):
-        if not granularity: granularity = self.granularity
-        if not count: count = self.count
-
-        return self.api.get_history(
-            self.instrument, 
-            granularity, 
-            count, 
-            price=price
-            )
-
-    @abstractmethod
-    def action(self, candles):
-        pass
-        
-
-    # wait for new candles, then perform action
-    def idle(self, instrument):
-        # candles = self.retrieve_data(300, 48)
-        while True:
-            candles = self.collect()
-            current_time = candles[-1]['time']
-            # print(f"current time {current_time}")
-            if current_time != instrument.time:
-                break
-            time.sleep(self.idle_time)
-
-        # .action method can use collect() or extract_prices to extract other relevant time series
-        order_signal = self.action(candles)
-        # order_signal should be 1 [buy] , -1 [sell], 0 [hold]
-
-        return current_time, order_signal
-
-    def extract_prices(self, candles, price_type='mid'):
-        # price_type = price_type.capitalize()
-
-        opens = []
-        closes = []
-        highs = []
-        lows = []
-        timestamps = []
-        volumes = []
-
-        for candle in candles:
-            opens.append(float(candle[price_type]['o']))
-            closes.append(float(candle[price_type]['c']))
-            highs.append(float(candle[price_type]['h']))
-            lows.append(float(candle[price_type]['l']))
-            timestamps.append(candle['time'][:19]) #'2018-10-05T14:56:40'
-            volumes.append(int(candle['volume']))
-
-        return opens, closes, highs, lows, volumes
 
 class Random(Strategy):
     def __init__(self, *args, **kwargs):
@@ -96,35 +37,26 @@ class Random(Strategy):
 class MACD(Strategy):
     def __init__(self, *args, **kwargs):
         super(MACD, self).__init__(*args, **kwargs)
-        self.fast_ma_period = kwargs.get('fast_ma_period', 9)
-        self.slow_ma_period = kwargs.get('slow_ma_period', 21)
+        self.fast_ma_period = kwargs.get('fast_ma_period', 12)
+        self.slow_ma_period = kwargs.get('slow_ma_period', 26)
 
     def construct_ma(self, candles, price_type = 'ask'):
-        prices = np.array(self.extract_prices(candles, price_type=price_type)[1], dtype=float)
+        o, c, h, l, v  = self.extract_prices(candles, price_type=price_type)
 
-        length = len(candles)
+        slow_ma = ema(c, self.slow_ma_period)
+        fast_ma = ema(c, self.fast_ma_period)
 
-        slow_ma = np.array([None]*length, dtype=float)
-        fast_ma = np.array([None]*length, dtype=float)
+        macd = slow_ma - fast_ma
+        macd_ewm = np.array(pd.DataFrame(macd).ewm(span=9).mean().squeeze()) 
 
-        ret = np.cumsum(prices, dtype=float)
-
-        n = self.fast_ma_period
-        fast_ma[n:] = ret[n:] - ret[:-n]
-        fast_ma /= n
-        n = self.slow_ma_period
-        slow_ma[n:] = ret[n:] - ret[:-n]
-        slow_ma /= n
-
-        return fast_ma, slow_ma
+        return macd, macd_ewm
 
     def action(self, candles):
-        fma_ask, sma_ask = self.construct_ma(candles, price_type='ask')
-        fma_bid, sma_bid = self.construct_ma(candles, price_type='bid')
+        macd, macd_ewm = self.construct_ma(candles, price_type='mid')
 
-        if fma_ask[-1] > sma_ask[-1]:
+        if macd_ewm[-1] > macd[-1]:
             return 'buy'
-        elif fma_bid[-1] < sma_bid[-1]:
+        elif macd_ewm[-1] < macd[-1]:
             return 'sell'
         else:
             return 'hold'

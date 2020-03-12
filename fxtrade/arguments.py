@@ -7,8 +7,6 @@ import os
 import re
 from typing import List, NamedTuple, Optional
 
-import arrow
-
 from fxtrade import __version__, constants
 
 
@@ -36,7 +34,6 @@ class Arguments(object):
 
     def _load_args(self) -> None:
         self.common_args_parser()
-        self._build_subcommands()
 
     def get_parsed_arg(self) -> argparse.Namespace:
         """
@@ -278,74 +275,6 @@ class Arguments(object):
             dest='spaces',
         )
 
-    def _build_subcommands(self) -> None:
-        """
-        Builds and attaches all subcommands
-        :return: None
-        """
-        from fxtrade.optimize import backtesting, hyperopt, edge_cli
-
-        subparsers = self.parser.add_subparsers(dest='subparser')
-
-        # Add backtesting subcommand
-        backtesting_cmd = subparsers.add_parser('backtesting', help='backtesting module')
-        backtesting_cmd.set_defaults(func=backtesting.start)
-        self.optimizer_shared_options(backtesting_cmd)
-        self.backtesting_options(backtesting_cmd)
-
-        # Add edge subcommand
-        edge_cmd = subparsers.add_parser('edge', help='edge module')
-        edge_cmd.set_defaults(func=edge_cli.start)
-        self.optimizer_shared_options(edge_cmd)
-        self.edge_options(edge_cmd)
-
-        # Add hyperopt subcommand
-        hyperopt_cmd = subparsers.add_parser('hyperopt', help='hyperopt module')
-        hyperopt_cmd.set_defaults(func=hyperopt.start)
-        self.optimizer_shared_options(hyperopt_cmd)
-        self.hyperopt_options(hyperopt_cmd)
-
-    @staticmethod
-    def parse_timerange(text: Optional[str]) -> TimeRange:
-        """
-        Parse the value of the argument --timerange to determine what is the range desired
-        :param text: value from --timerange
-        :return: Start and End range period
-        """
-        if text is None:
-            return TimeRange(None, None, 0, 0)
-        syntax = [(r'^-(\d{8})$', (None, 'date')),
-                  (r'^(\d{8})-$', ('date', None)),
-                  (r'^(\d{8})-(\d{8})$', ('date', 'date')),
-                  (r'^-(\d{10})$', (None, 'date')),
-                  (r'^(\d{10})-$', ('date', None)),
-                  (r'^(\d{10})-(\d{10})$', ('date', 'date')),
-                  (r'^(-\d+)$', (None, 'line')),
-                  (r'^(\d+)-$', ('line', None)),
-                  (r'^(\d+)-(\d+)$', ('index', 'index'))]
-        for rex, stype in syntax:
-            # Apply the regular expression to text
-            match = re.match(rex, text)
-            if match:  # Regex has matched
-                rvals = match.groups()
-                index = 0
-                start: int = 0
-                stop: int = 0
-                if stype[0]:
-                    starts = rvals[index]
-                    if stype[0] == 'date' and len(starts) == 8:
-                        start = arrow.get(starts, 'YYYYMMDD').timestamp
-                    else:
-                        start = int(starts)
-                    index += 1
-                if stype[1]:
-                    stops = rvals[index]
-                    if stype[1] == 'date' and len(stops) == 8:
-                        stop = arrow.get(stops, 'YYYYMMDD').timestamp
-                    else:
-                        stop = int(stops)
-                return TimeRange(stype[0], stype[1], start, stop)
-        raise Exception('Incorrect syntax for timerange "%s"' % text)
 
     def scripts_options(self) -> None:
         """

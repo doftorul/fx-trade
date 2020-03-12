@@ -217,12 +217,13 @@ class Telegram(RPC):
             
         try:
             # stats = self._rpc_report(report_date)
-            stats = self._rpc_closed_activity(report_date)
+            stats = self._rpc_persisted_report(report_date)
             stats_tab = tabulate(stats,
                                  headers=[
                                      'Asset',
                                      'P/L',
-                                     'Balance'
+                                     'Balance',
+                                     'Time'
                                  ],
                                  floatfmt=".4f")
             message = f'<b>Daily report - {report_date.day}/{report_date.month}/{report_date.year} </b>:\n<pre>{stats_tab}</pre>'
@@ -291,7 +292,7 @@ class Telegram(RPC):
                 pass
             
         try:
-            stats = self._rpc_closed_profit(report_date)
+            stats = self._rpc_persisted_profit(report_date)
 
             stats_tab = tabulate(stats,
                                  headers=[

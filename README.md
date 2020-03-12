@@ -29,11 +29,15 @@ Log other statistical data:
 ## ToDos
 
 - [x] beautify logging telegram
-- [ ] connect telegram commands with Oanda api
+- [x] connect telegram commands with Oanda api
 - [x] Parallelize currency processes
+- [ ] Default configurations and constants
 - [ ] Define MACD strategies and other with techical indicators
+- [ ] Add more validation methods for stategies
 
 2nd stage
 - [ ] ML/TL training or statistical modeling
 - [ ] Integrate news feed with sentiment analysis/keyword detection
 - [ ] Test massively with lower granularity
+- [ ] Edge: This page explains how to use Edge Positioning module in your bot in order to enter into a trade only if the trade has a reasonable win rate and risk reward ratio, and consequently adjust your position size and stoploss. https://www.freqtrade.io/en/latest/edge/
+- [ ] Optimizer: https://www.freqtrade.io/en/latest/hyperopt/

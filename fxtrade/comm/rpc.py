@@ -79,13 +79,14 @@ class RPC(object):
     def _rpc_persisted_report(self, report_date) -> List[List[Any]]:
         
         
-        results = self._persistor.retrieve_closed_trade_by_date(report_date)
+        results = self._persistor.retrieve_transactions_trade_by_date(report_date)
 
         return [
             [
                 result.instrument,
                 result.profit,
-                result.balance
+                result.balance,
+                result.time.strftime("%H:%M:%S")
             ]
             for result in results
         ]
@@ -93,14 +94,17 @@ class RPC(object):
     def _rpc_persisted_profit(self, report_date) -> List[List[Any]]:
         
         
-        results = self._persistor.retrieve_closed_trade_by_date(report_date)
+        results = self._persistor.retrieve_transactions_trade_by_date(report_date)
 
         profits = {}
-
+        total = 0.
         for result in results:
             if result.instrument not in profits:
                 profits[result.instrument] = 0.
             profits[result.instrument] += result.profit
+            total += result.profit
+
+        profits["Total"] = total
 
         return [[k,v] for k,v in profits.items()]
 
@@ -143,6 +147,10 @@ class RPC(object):
 
 
     def _rpc_closed_activity(self, report_date) -> List[List[Any]]:
+
+        """
+        This will show only the first 1000 transactions of the day"
+        """
         
         datestring = report_date.strftime("%Y-%m-%d")
 
@@ -166,7 +174,8 @@ class RPC(object):
                     [
                         transaction["instrument"],
                         transaction["pl"],
-                        transaction["accountBalance"]
+                        transaction["accountBalance"],
+                        transaction["time"]
 
                     ]
                 )
@@ -175,7 +184,8 @@ class RPC(object):
                     [
                         "DAILY_FEE",
                         transaction["financing"],
-                        transaction["accountBalance"]
+                        transaction["accountBalance"],
+                        transaction["time"]
 
                     ]
                 )
@@ -200,6 +210,10 @@ class RPC(object):
         return open_trades_triplets
 
     def _rpc_closed_profit(self, report_date) -> List[List[Any]]:
+
+        """
+        This will show only the profit for the first 1000 transactions of the day"
+        """
         
         
         datestring = report_date.strftime("%Y-%m-%d")

@@ -2,11 +2,15 @@ from peewee import *
 from datetime import datetime
 import os 
 
+
+def to_datetime(s):
+    return datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f')
+
 PERSISTENCE_DIR = "database"
 
 proxy = Proxy()
 
-class Closed(Model):
+class Transactions(Model):
     trade_id = IntegerField()
     instrument = CharField()
     position = CharField()
@@ -47,11 +51,11 @@ class Persistor(object):
             database = SqliteDatabase(self.data_dir)
             # database.connect()
             proxy.initialize(database)
-            database.create_tables([Opened, Closed, Decisions])
+            database.create_tables([Opened, Transactions, Decisions])
             # database.close()
             
 
-    def store_closed(self, data):
+    def store_transactions(self, data):
 
         # name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
         # data_dir =  os.path.join(PERSISTENCE_DIR, name)
@@ -59,22 +63,50 @@ class Persistor(object):
         # if not os.path.exists(data_dir):
         #     database = SqliteDatabase(data_dir)
         #     proxy.initialize(database)
-        #     database.create_tables([Opened, Closed], safe=True)
+        #     database.create_tables([Opened, Transactions], safe=True)
         # else:
         database = SqliteDatabase(self.data_dir)
         proxy.initialize(database)
 
+        transactions = data["transactions"] if data else []
+        since_id = data["lastTransactionID"]
+
         with proxy.atomic():
-            for d in data:
-                if d:
-                    Closed.create(
-                        trade_id = d["tradeID"],
-                        instrument = d["instrument"],
-                        position = d["position"],
-                        profit = d["PL"],
-                        balance = d["balance"],
-                        time = d["time"]#.replace("T", " "),
+            for transaction in transactions:
+                if ((transaction.get("reason", "") == "MARKET_ORDER_TRADE_CLOSE") or
+                    ((transaction.get("type", "") == "ORDER_FILL") and
+                    (transaction.get("reason", "") == "STOP_LOSS_ORDER")) or 
+                    ((transaction.get("type", "") == "ORDER_FILL") and
+                    (transaction.get("reason", "") == "TAKE_PROFIT_ORDER"))):
+                    Transactions.create(
+                        trade_id = transaction["id"],
+                        instrument = transaction["instrument"],
+                        position = "SHORT" if int(transaction["units"]) <0 else "LONG",
+                        profit = transaction["pl"],
+                        balance = transaction["accountBalance"],
+                        time = to_datetime(transaction["time"][:-4])
                         ).save()
+                if transaction.get("type", "") == "DAILY_FINANCING":
+                    Transactions.create(
+                        trade_id = transaction["id"],
+                        instrument = "DAILY_FEE",
+                        position = "DAILY_FEE",
+                        profit = transaction["financing"],
+                        balance = transaction["accountBalance"],
+                        time = to_datetime(transaction["time"][:-4])
+                        ).save()
+        
+        return since_id
+                    
+
+    def get_last_transaction_id(self):
+
+        # data is a datetime.date object datetime.date(YYYY, MM, )
+        database = SqliteDatabase(self.data_dir)
+        proxy.initialize(database)
+        with proxy.atomic():
+            last_transaction_id = Transactions.select().order_by(Transactions.trade_id.desc()).get()
+        return last_transaction_id.trade_id
         
         
     def store_opened(self, data):
@@ -84,7 +116,7 @@ class Persistor(object):
         # if not os.path.exists(data_dir):
         #     database = SqliteDatabase(data_dir)
         #     proxy.initialize(database)
-        #     database.create_tables([Opened, Closed], safe=True)
+        #     database.create_tables([Opened, Transactions], safe=True)
         # else:
         database = SqliteDatabase(self.data_dir)
         proxy.initialize(database)
@@ -109,7 +141,7 @@ class Persistor(object):
         # if not os.path.exists(data_dir):
         #     database = SqliteDatabase(data_dir)
         #     proxy.initialize(database)
-        #     database.create_tables([Opened, Closed], safe=True)
+        #     database.create_tables([Opened, Transactions], safe=True)
         # else:
         database = SqliteDatabase(self.data_dir)
         proxy.initialize(database)
@@ -124,23 +156,23 @@ class Persistor(object):
                         ).save()
 
 
-    def retrieve_closed_trade_by_date(self, date):
+    def retrieve_transactions_trade_by_date(self, date):
         # data is a datetime.date object datetime.date(YYYY, MM, )
         database = SqliteDatabase(self.data_dir)
         proxy.initialize(database)
         with proxy.atomic():
-            result = list(Closed\
+            result = list(Transactions\
                 .select(
-                    Closed.instrument, 
-                    Closed.position, 
-                    Closed.profit, 
-                    Closed.time, 
-                    Closed.balance
+                    Transactions.instrument, 
+                    Transactions.position, 
+                    Transactions.profit, 
+                    Transactions.time, 
+                    Transactions.balance
                     )\
                 .where(
-                    (Closed.time.day == date.day) & 
-                    (Closed.time.year == date.year) & 
-                    (Closed.time.month == date.month)
+                    (Transactions.time.day == date.day) & 
+                    (Transactions.time.year == date.year) & 
+                    (Transactions.time.month == date.month)
                     )
                 )
         return result
