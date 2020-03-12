@@ -523,7 +523,10 @@ class Oanda(object):
 
     """Trades"""
     def open_trades(self):
-        pass
+        r = trades.OpenTrades(accountID=self.account_id)
+        request_data = self.send_request(r)
+
+        return request_data.get("trades", [])
     
     def trade_crcdo(self, trade_id, take_profit, stop_loss):
         pass

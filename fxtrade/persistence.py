@@ -17,6 +17,14 @@ class Closed(Model):
     class Meta:
         database = proxy
 
+class Decisions(Model):
+    instrument = CharField()
+    position = CharField()
+    time = DateTimeField()
+
+    class Meta:
+        database = proxy
+
 class Opened(Model):
     trade_id = IntegerField()
     batch_id = IntegerField()
@@ -39,7 +47,7 @@ class Persistor(object):
             database = SqliteDatabase(self.data_dir)
             # database.connect()
             proxy.initialize(database)
-            database.create_tables([Opened, Closed])
+            database.create_tables([Opened, Closed, Decisions])
             # database.close()
             
 
@@ -94,6 +102,28 @@ class Persistor(object):
                         ).save()
 
 
+    def store_decisions(self, data):
+        # name = 'history_{}.db'.format(datetime.now().strftime("%d%m%Y"))
+        # data_dir =  os.path.join(PERSISTENCE_DIR, name)
+
+        # if not os.path.exists(data_dir):
+        #     database = SqliteDatabase(data_dir)
+        #     proxy.initialize(database)
+        #     database.create_tables([Opened, Closed], safe=True)
+        # else:
+        database = SqliteDatabase(self.data_dir)
+        proxy.initialize(database)
+
+        with proxy.atomic():
+            for d in data:
+                if d:
+                    Decisions.create(
+                        instrument = d["instrument"],
+                        position = d["position"],
+                        time = d["time"]#.replace("T", " "),
+                        ).save()
+
+
     def retrieve_closed_trade_by_date(self, date):
         # data is a datetime.date object datetime.date(YYYY, MM, )
         database = SqliteDatabase(self.data_dir)
@@ -111,6 +141,25 @@ class Persistor(object):
                     (Closed.time.day == date.day) & 
                     (Closed.time.year == date.year) & 
                     (Closed.time.month == date.month)
+                    )
+                )
+        return result
+
+
+    def retrieve_decisions_by_date(self, date):
+        # data is a datetime.date object datetime.date(YYYY, MM, )
+        database = SqliteDatabase(self.data_dir)
+        proxy.initialize(database)
+        with proxy.atomic():
+            result = list(Decisions\
+                .select(
+                    Decisions.instrument, 
+                    Decisions.position, 
+                    )\
+                .where(
+                    (Decisions.time.day == date.day) & 
+                    (Decisions.time.year == date.year) & 
+                    (Decisions.time.month == date.month)
                     )
                 )
         return result

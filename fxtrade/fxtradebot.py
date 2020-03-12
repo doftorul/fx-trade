@@ -148,6 +148,7 @@ class FXTradeBot(object):
             self.pairlists = [r[0] for r in results]
             closed_order_details = [r[1] for r in results]
             open_order_details = list(itertools.chain.from_iterable([r[2] for r in results]))
+            decisions = [r[3] for r in results]
 
             closed_order_details = [c for c in closed_order_details if c]
             open_order_details = [o for o in open_order_details if o]
@@ -156,10 +157,12 @@ class FXTradeBot(object):
             # open_order_details = sorted(open_order_details, key=lambda k: datetime.strptime(k['time'], '%Y-%m-%dT%H:%M:%S'))
             closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
             open_order_details = sorted(open_order_details, key=lambda k: k['time'])
+            decisions = sorted(decisions, key=lambda k: k['time'])
 
 
             self.persistor.store_opened(open_order_details)
             self.persistor.store_closed(closed_order_details)
+            self.persistor.store_decisions(decisions)
             # updated_pairlist = []
             # for p, s, f in zip(self.pairlists, self.strategies, funds):
             #     updated_pair = self._process(p,s,f)
@@ -189,6 +192,14 @@ class FXTradeBot(object):
             order_signal = signal2index[order_signal]
 
             order_signal_id = [2,0,1][order_signal] #1, -1, 0
+            decision = {
+                "position" : ['LONG', 'SHORT', 'HOLD'][order_signal_id],
+                "time" : datetime.utcnow(),
+                "instrument" : instrument.name  
+            } 
+
+
+
             self.exchange.sync_with_oanda()
             current_position = self.exchange.order_book[instrument.name]['order_type']
             if current_position != order_signal:
@@ -226,7 +237,7 @@ class FXTradeBot(object):
         else:
             instrument.units = to_commit
 
-        return instrument, closed_order_details, open_order_details
+        return instrument, closed_order_details, open_order_details, decision
 
 
     def close_all_orders(self):

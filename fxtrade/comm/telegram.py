@@ -79,9 +79,11 @@ class Telegram(RPC):
         handles = [
             CommandHandler('profit', self._profit),
             CommandHandler('report', self._report),
-            CommandHandler('help', self._help),
+            CommandHandler('trades', self._trades),
             CommandHandler('start', self._start),
             CommandHandler('stop', self._stop),
+            CommandHandler('stats', self._stats),
+            CommandHandler('help', self._help),
             CommandHandler('closeall', self._close_all),
             CommandHandler('reload', self._reload_conf),
             CommandHandler('pairs', self._whitelist),
@@ -228,6 +230,30 @@ class Telegram(RPC):
         except RPCException as e:
             self._send_msg(str(e), bot=bot)
 
+    @authorized_only
+    def _trades(self, bot: Bot, update: Update) -> None:
+        """
+        Handler for /trades <n>
+        Returnn the open trades
+        :param bot: telegram bot
+        :param update: message update
+        :return: None
+        """
+        try:
+            # stats = self._rpc_report(report_date)
+            open_trades = self._rpc_open_trades()
+            stats_tab = tabulate(open_trades,
+                                 headers=[
+                                     'Asset',
+                                     'units',
+                                     'uP/L'
+                                 ],
+                                 floatfmt=".4f")
+            message = f'<b>Open trades </b>:\n<pre>{stats_tab}</pre>'
+            self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
+        except RPCException as e:
+            self._send_msg(str(e), bot=bot)
+
 
     @authorized_only
     def _profit(self, bot: Bot, update: Update) -> None:
@@ -274,6 +300,49 @@ class Telegram(RPC):
                                  ],
                                  floatfmt=".4f")
             message = f'<b>Daily statistics - {report_date.day}/{report_date.month}/{report_date.year} </b>:\n<pre>{stats_tab}</pre>'
+            self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
+        except RPCException as e:
+            self._send_msg(str(e), bot=bot)
+
+    @authorized_only
+    def _stats(self, bot: Bot, update: Update) -> None:
+        date = update.message.text.replace('/stats', '').strip()
+        report_date = datetime.datetime.utcnow().date()
+
+        if date:
+            date_elements = date.split()
+            try:
+                if len(date_elements) == 1:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0])
+                        )
+                if len(date_elements) == 2:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0]), 
+                        month=int(date_elements[1])
+                        )
+                if len(date_elements) == 3:
+                    report_date = report_date.replace(
+                        day=int(date_elements[0]), 
+                        month=int(date_elements[1]), 
+                        year=int(date_elements[2])
+                        )
+            except:
+                pass
+            
+        try:
+            stats = self._rpc_persisted_decisions(report_date)
+
+            stats_tab = tabulate(stats,
+                                 headers=[
+                                     'Asset',
+                                     'L',
+                                     'S',
+                                     'H',
+                                     '#'
+                                 ],
+                                 tablefmt="simple")
+            message = f'<b>Decisions statistics - {report_date.day}/{report_date.month}/{report_date.year} </b>:\n<pre>{stats_tab}</pre>'
             self._send_msg(message, bot=bot, parse_mode=ParseMode.HTML)
         except RPCException as e:
             self._send_msg(str(e), bot=bot)
@@ -357,9 +426,11 @@ class Telegram(RPC):
         """
         message = "*/start:* `Starts the trader`\n" \
                   "*/stop:* `Stops the trader`\n" \
+                  "*/trades:* `Show all the open trades`\n" \
                   "*/closeall:* `Closes all the open trades`\n" \
                   "*/report [DD MM YYYY]:* `Shows detailed P/L per day`\n" \
                   "*/profit [DD MM YYYY]:* `Shows statistics for each pair per day`\n" \
+                  "*/stats [DD MM YYYY]:* `Shows decisions statistics for each pair per day`\n" \
                   "*/reload:* `Reload configuration file` \n" \
                   "*/pairs:* `Show current tradeable pairs` \n" \
                   "*/help:* `This help message`\n" \
@@ -378,9 +449,9 @@ class Telegram(RPC):
         """
         bot = bot or self._updater.bot
 
-        keyboard = [['/profit', '/report', '/help'],
+        keyboard = [['/profit', '/report', '/trades'],
                     ['/start', '/stop', '/closeall'],
-                    ['/reload', '/pairs']]
+                    ['/reload', '/pairs', '/stats', '/help']]
 
         reply_markup = ReplyKeyboardMarkup(keyboard)
 

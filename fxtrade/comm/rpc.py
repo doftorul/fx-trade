@@ -105,6 +105,43 @@ class RPC(object):
         return [[k,v] for k,v in profits.items()]
 
 
+    def _rpc_persisted_decisions(self, report_date) -> List[List[Any]]:
+        
+        
+        results = self._persistor.retrieve_decisions_by_date(report_date)
+
+        decisions = {}
+
+        for result in results:
+            if result.instrument not in decisions:
+                decisions[result.instrument] = {
+                    "TOTAL" : 0,
+                    "LONG" : 0.,
+                    "SHORT" : 0.,
+                    "HOLD" : 0.
+                }
+                
+            decisions[result.instrument][result.position] += 1
+            decisions[result.instrument]["TOTAL"] += 1
+
+
+        decisions_triplets = []
+
+        for instrument in decisions:
+
+            decisions_triplets.append(
+                [
+                    instrument,
+                    round(decisions[instrument]["LONG"] / decisions[instrument]["TOTAL"]*100),
+                    round(decisions[instrument]["SHORT"] / decisions[instrument]["TOTAL"]*100),
+                    round(decisions[instrument]["HOLD"] / decisions[instrument]["TOTAL"]*100),
+                    str(int(decisions[instrument]["TOTAL"]))
+                ]
+            )
+
+        return decisions_triplets
+
+
     def _rpc_closed_activity(self, report_date) -> List[List[Any]]:
         
         datestring = report_date.strftime("%Y-%m-%d")
@@ -145,6 +182,23 @@ class RPC(object):
 
         return closed_trades
 
+    def _rpc_open_trades(self) -> List[List[Any]]:
+
+        open_trades = self._fxtrade.exchange.open_trades()
+
+        open_trades_triplets = []
+        for trade in open_trades:
+
+            if trade["state"] == "OPEN":
+                open_trades_triplets.append(
+                    [
+                        trade["instrument"],
+                        trade["initialUnits"],
+                        trade["unrealizedPL"]
+                    ]
+                )
+        return open_trades_triplets
+
     def _rpc_closed_profit(self, report_date) -> List[List[Any]]:
         
         
@@ -156,7 +210,6 @@ class RPC(object):
         result = self._fxtrade.exchange.transactions_list(_from=_from, _to=_to)
 
         transactions = result["transactions"] if result else []
-
 
         profits = {}
 
