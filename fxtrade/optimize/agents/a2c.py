@@ -1,42 +1,15 @@
-import math
-import random
-import os 
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.autograd as autograd
 import torch.nn.functional as F
 from torch.distributions import Categorical
-
 import numpy as np
-
-from tensorboardX import SummaryWriter
-from tqdm import tqdm
-
-from datetime import datetime
+import os
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-class QNetwork(nn.Module):
-    def __init__(self, num_inputs, num_actions, hidden_size, init_w=3e-3):
-        super(QNetwork, self).__init__()
-        
-        self.linear1 = nn.Linear(num_inputs + num_actions, hidden_size)
-        self.linear2 = nn.Linear(hidden_size, hidden_size)
-        self.linear3 = nn.Linear(hidden_size, 1)
-        
-        self.linear3.weight.data.uniform_(-init_w, init_w)
-        self.linear3.bias.data.uniform_(-init_w, init_w)
-
-        self.to(device)
-        
-    def forward(self, state, action):
-        x = torch.cat([state, action], 1)
-        x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
-        x = self.linear3(x)
-        return x
 
 class ValueNetwork(nn.Module):
     def __init__(self, num_inputs, hidden_size, init_w=3e-3):
@@ -57,7 +30,7 @@ class ValueNetwork(nn.Module):
     
 
 class PolicyNetwork(nn.Module): #discrete
-    def __init__(self, num_inputs, num_actions, hidden_size, init_w=3e-3):
+    def __init__(self, num_inputs, hidden_size,  num_actions=3, init_w=3e-3):
         super(PolicyNetwork, self).__init__()
         
         self.linear1 = nn.Linear(num_inputs, hidden_size)
@@ -77,7 +50,7 @@ class PolicyNetwork(nn.Module): #discrete
         x = self.softmax(self.linear3(x))
         return x
 
-class A2C(object):
+class A2C_episodic(object):
     def __init__(self, state_dim, action_dim, 
         hidden_size=256, gamma=0.99, 
         optimiser="Adam", value_lr=1e-3,
@@ -127,12 +100,12 @@ class A2C(object):
             returns.insert(0, R)
         return returns
 
-    def train(self, environment, max_episodes, num_steps=5):
+    def train(self, environment, max_episodes, num_steps=10):
 
-        state = environment.reset()
-        test_rewards=[]
 
-        for episode in tqdm(range(max_episodes)):
+        for episode in range(max_episodes):
+            
+            state = environment.reset()
 
             log_probs = []
             values    = []
@@ -157,13 +130,6 @@ class A2C(object):
                 
                 state = next_state
                 episode += 1
-                
-                if not (episode % self.test_every) and self.test_every:
-                    test_reward = np.mean([self.test(environment) for _ in range(10)])
-                    test_rewards.append(test_reward)
-                    self.writer.add_scalar("test/reward", np.mean(test_reward), episode)
-                    if self.save:
-                        self.save_model(self.save_output_dir(episode))
 
             next_state = torch.FloatTensor(next_state).to(device)
             _, next_value = self(next_state)
@@ -197,31 +163,6 @@ class A2C(object):
             self.policy_optimizer.step()
 
         self.save_model(self.save_output_dir("final"))
-
-    def test(self, test_env=None, iterations=1):
-
-        try:
-            environment = self.test_env()
-        except:
-            environment = test_env()
-
-        returns = []
-        for _ in range(iterations):
-            state = environment.reset()
-            done = False
-            total_reward = 0
-            while not done:
-                state = torch.FloatTensor(state).unsqueeze(0).to(device)
-                dist, _ = self(state)
-                if self.test_only:
-                    environment.render()
-                next_state, reward, done, _ = environment.step(dist.sample().cpu().numpy()[0])
-                state = next_state
-                total_reward += reward
-            returns.append(total_reward)
-        if self.test_only:
-            environment.close()
-        return np.mean(returns)
 
     def save_model(self, output_dir):
         print("Saving the actor and critic")
