@@ -32,9 +32,39 @@ def plot_candles(candles, price_type='mid'):
     plotly.offline.plot(data, filename="candles_{}.html")
 
 
-def save(xs, ys, names):
+def get_plot_candles(candles, price_type='mid'):
+    quotes = {
+        'open': [], 
+        'high': [], 
+        'low': [], 
+        'close': [],
+        'time' : [],
+        'volume' : []
+        }
+
+    for i, candle in enumerate(candles):
+        quotes['open'].append(float(candle[0]))
+        quotes['close'].append(float(candle[1]))
+        quotes['high'].append(float(candle[2]))
+        quotes['low'].append(float(candle[3]))
+        quotes['time'].append(i)
+        quotes['volume'].append(float(candle[6]))
+
+    trace = go.Candlestick(x=quotes['time'],
+                    open=quotes['open'],
+                    high=quotes['high'],
+                    low=quotes['low'],
+                    close=quotes['close'])
+
+    return trace
+
+
+def save(xs, ys, names, candles):
     fig = go.Figure()
 
     for x, y, name in zip(xs, ys, names):
         fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name=name))
+
+    trace = get_plot_candles(candles)
+    fig.add_trace(trace)
     plotly.offline.plot(fig, filename = 'filename.html', auto_open=False) 
