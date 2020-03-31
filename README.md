@@ -67,3 +67,16 @@ Conclusions:
 - Given only price and volume data, predicting price direction is not really accurate.
 - For predictions to be reasonable more features are needed. For instance sentiment data, other macroeconomic data or whatever.
 - If not only possible profitable strategy would be, to use other models like position sizing and carefully entering trades to decrease total transaction costs.
+
+
+## On training sessions
+
+### 1st experiment
+
+Batch 16, total batches 432, one currency-pair EUR_USD, time per epoch: 2' 50"
+
+At 4th epoch learning seems to have reached an optimum (able to gain an average of 170 pips - over 16 trades - at each time step, versus a potential average gain of 230 pips).
+
+With one currency pair, 6903 50-step time-series featured (from monday midnight to friday 9PM, one week), granularity of 1 minute, the optimal number of epochs is 2. After 2 epochs there happens loss divergences and overfitting, exploding gradients.
+
+

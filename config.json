@@ -30,6 +30,7 @@
         "token": "39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0",
         "active_account": "101-004-6618803-001",
         "datetime_format": "RFC3339",
+        "environment" : "practice",
         "hostname": "api-fxpractice.oanda.com",
         "streaming_hostname": "stream-fxpractice.oanda.com",
         "port": 443,

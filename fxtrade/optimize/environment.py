@@ -7,6 +7,10 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import pandas as pd
 from tqdm import tqdm
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 Transition = namedtuple('Transition', ['state', 'next_state', 'profit'])
 
@@ -116,15 +120,22 @@ class TradingEnvironment():
 
 
 class CandlesBatched(Dataset):
-    def __init__(self, datapath, window=50, steps=5):
+    def __init__(self, datapath, window=50, steps=5, instrument="", features=True):
 
-        with open(datapath, "r") as dp: 
-            candles = json.load(dp) 
+        if type(datapath) == str:
+            with open(datapath, "r") as dp: 
+                candles = json.load(dp)
+            pip_conversion = 10000 if "JPY" not in datapath else 100
+        else:
+            candles = datapath
+            pip_conversion = 10000 if "JPY" not in instrument else 100
+            
 
-        pip_conversion = 10000 if "JPY" not in datapath else 100
 
         len_data = len(candles)
         self.steps = steps
+
+        ## TODO: add spread (ask-bid)
 
         self.data = []
         for i in range(0, len_data-window):
@@ -138,21 +149,34 @@ class CandlesBatched(Dataset):
     
         lendata = len(self.data)
 
-        logger.info("Adding features to dataset")
-        self.featured_data = []
+        if features:
+            self.featured_data = []
 
-        for d in tqdm(self.data):
-            self.featured_data.append([add_features(d[0]), add_features(d[1]), d[2]])
+            for d in tqdm(self.data):
+                self.featured_data.append([add_features(d[0]), add_features(d[1]), d[2]])
 
-        self.samples = []
-        for d in range(0, lendata-self.steps):
-            actual = self.data[d:d+self.steps]
-            st = [a[0] for a in actual]
-            ns = [a[1] for a in actual]
-            p = [a[2] for a in actual]
-            self.samples.append(
-                [st, ns, p]
-            )
+            
+            self.samples = []
+            for d in range(0, lendata-self.steps):
+                actual = self.featured_data[d:d+self.steps]
+                st = [a[0] for a in actual]
+                ns = [a[1] for a in actual]
+                p = [a[2] for a in actual]
+                self.samples.append(
+                    [st, ns, p]
+                )
+
+        else:
+
+            self.samples = []
+            for d in range(0, lendata-self.steps):
+                actual = self.data[d:d+self.steps]
+                st = [a[0] for a in actual]
+                ns = [a[1] for a in actual]
+                p = [a[2] for a in actual]
+                self.samples.append(
+                    [st, ns, p]
+                )
 
     def __len__(self):
         return len(self.samples)

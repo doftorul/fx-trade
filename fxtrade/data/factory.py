@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 import os
 import argparse
-
+from tqdm import tqdm
 """
 
 Usage
@@ -52,7 +52,7 @@ class Downloader(object):
             candles += single_req['candles']
 
         list_candles = []
-        for candle in candles:
+        for candle in tqdm(candles):
             for k in ["bid", "ask", "mid"]:
                 for x in ["o", "c", "h", "l"]:
                     candle["{}_{}".format(k, x)] = candle[k][x]
@@ -88,5 +88,7 @@ class Downloader(object):
 
             with open(namefile, "w") as jout:
                 json.dump(list_candles, jout, indent=4)
+
+            return list_candles, namefile
 
         return list_candles

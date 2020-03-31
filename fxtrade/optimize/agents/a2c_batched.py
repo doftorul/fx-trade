@@ -92,7 +92,7 @@ class ValueNetwork(nn.Module):
         return x
 
 class A2C(object):
-    def __init__(self, state_dim=7, action_dim=3, gamma=0.99, 
+    def __init__(self, state_dim=14, action_dim=3, gamma=0.99, 
         optimiser="Adam", value_lr=1e-3,
         policy_lr=1e-4, load_dir="", conv=False, debug=False, 
         output_dir="tensorboard", write=True, save=True, test_every=1000, test_only=False):
@@ -107,7 +107,7 @@ class A2C(object):
         self.critic = ValueNetwork(state_dim)
         self.actor = PolicyNetwork(state_dim, action_dim)
 
-        if load_dir: self.load_model(load_dir)
+        # if load_dir: self.load_model(load_dir)
 
         self.test_only =test_only
         if not self.test_only:
