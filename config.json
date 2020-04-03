@@ -13,7 +13,7 @@
     },
     "strategy": {
         "type": "neural",
-        "name": "A2C",
+        "name": "MACD",
         "params": {
             "idle_time" : 5,
             "granularity": 60,
