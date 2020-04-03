@@ -12,7 +12,8 @@
         "sell": 30
     },
     "strategy": {
-        "name": "MACD",
+        "type": "neural",
+        "name": "A2C",
         "params": {
             "idle_time" : 5,
             "granularity": 60,

@@ -71,12 +71,51 @@ Conclusions:
 
 ## On training sessions
 
-### 1st experiment
+### 1st experiment: Batched Episodic Advantage GRU Actor Critic
 
-Batch 16, total batches 432, one currency-pair EUR_USD, time per epoch: 2' 50"
+20200331_112831
+
+Batch 32, total batches 216, one currency-pair EUR_USD, time per epoch: 2'
 
 At 4th epoch learning seems to have reached an optimum (able to gain an average of 170 pips - over 16 trades - at each time step, versus a potential average gain of 230 pips).
 
 With one currency pair, 6903 50-step time-series featured (from monday midnight to friday 9PM, one week), granularity of 1 minute, the optimal number of epochs is 2. After 2 epochs there happens loss divergences and overfitting, exploding gradients.
 
 
+### 2nd experiment: One week Batched Episodic Advantage GRU Actor Critic
+
+20200331_125414
+
+Batch 32, total batches 1502, all the currency-pairs listed in configs , time per epoch: 11'
+Penalties for holding position. *So far the best method with highest gain.*
+
+With all the currency pair over the past week, granularity of 1 minute, the optimal number of epochs is 1 or 2. After 2 epochs there happens loss divergences and overfitting, exploding gradients.
+
+### 2nd experiment: 2 weeks Batched Episodic Advantage GRU Actor Critic
+
+20200331_162432
+
+Batch 32, total batches 3005, all the currency-pairs listed in configs , time per epoch: 25'
+Penalties for holding position. *So far the best method with highest gain.*
+
+With all the currency pair over the past 2 weeks, granularity of 1 minute, the optimal number of epochs is 1 or 2. After 2 epochs there happens loss divergences and overfitting, exploding gradients.
+
+### 2nd-B experiment: Batched Episodic Advantage GRU Actor Critic (No holding penalty)
+
+20200331_125414
+
+Batch 32, total batches 1502, all the currency-pairs listed in configs , time per epoch: 11'
+No penalties for holding position. No relevant improvements.
+
+### 2nd-C experiment: 2 weeks Batched Episodic Advantage GRU (small) Actor Critic
+
+20200331_170531
+
+Batch 32, total batches 3005, all the currency-pairs listed in configs , time per epoch: '
+Penalties for holding position. Good but no real improvements.
+
+### 3rd experiment: Batched Episodic Advantage Convolutional Actor Critic
+
+### 4th experiment: Environmental Double GRU DQN 
+
+### 5th experiment: Environmental Double Convolutional DQN 

@@ -5,6 +5,11 @@ from datetime import datetime
 import os
 import argparse
 from tqdm import tqdm
+
+import logging
+logger = logging.getLogger(__name__)
+
+
 """
 
 Usage
