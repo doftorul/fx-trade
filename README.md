@@ -25,26 +25,28 @@ Telegram is not mandatory. However, this is a great way to control your bot.
 - `/report [DD MM YYYY]`: Shows detailed P/L per day
 - `/profit [DD MM YYYY]`: Shows statistics for each pair per day
 - `/stats [DD MM YYYY]`: Shows decisions statistics for each pair per day
-- `/reload`: Reload configuration file
 - `/pairs`: Show current tradeable pairs
 - `/help`: This help message
+- `/train` [D1 M1 D2 M2 G]' : Starts training on all the whitelist pairs, using data with granularity `G`, and rangin from `D1/M1` to `D2/M2` datetime interval.  
+- `/reload`: Reload configuration file or a new neural network after training.
 
+## Best practices
 
 ## ToDos
 
 - [x] beautify logging telegram
 - [x] connect telegram commands with Oanda api
 - [x] Parallelize currency processes
+- [x] Define MACD strategies and other with techical indicators
+- [x] Add more validation methods for stategies
+- [x] ML/TL training or statistical modeling
+- [ ] add training option in telegram, and automate neural nets reloading process
+- [ ] try to use just one network (strategy) object if it is shared between pairs
+- [ ] Dockerfile and deployment on server
 - [ ] Default configurations and constants
-- [ ] Define MACD strategies and other with techical indicators
-- [ ] Add more validation methods for stategies
 
 2nd stage
-- [ ] ML/TL training or statistical modeling
-- [ ] Integrate news feed with sentiment analysis/keyword detection
-- [ ] Test massively with lower granularity
-- [ ] Edge: This page explains how to use Edge Positioning module in your bot in order to enter into a trade only if the trade has a reasonable win rate and risk reward ratio, and consequently adjust your position size and stoploss. https://www.freqtrade.io/en/latest/edge/
-- [ ] Optimizer: https://www.freqtrade.io/en/latest/hyperopt/
+- [ ] Study RL for Edge: This page explains how to use Edge Positioning module in your bot in order to enter into a trade only if the trade has a reasonable win rate and risk reward ratio, and consequently adjust your position size and stoploss. https://www.freqtrade.io/en/latest/edge/
 
 
 ## Considerations
