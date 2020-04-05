@@ -17,7 +17,6 @@ Transition = namedtuple('Transition', ['state', 'next_state', 'profit'])
 from fxtrade.data.indicators import add_features
 
 class TradingEnvironment():
-
     def __init__(self, datapath, window=50, steps=10):
 
         with open(datapath, "r") as dp: 
@@ -95,7 +94,7 @@ class TradingEnvironment():
 
 
 class CandlesBatched(Dataset):
-    def __init__(self, datapath, window=50, steps=5, instrument=[], features=True):
+    def __init__(self, datapath, window=50, steps=5, instrument=None):
 
         if type(datapath) == str:
             with open(datapath, "r") as dp: 
@@ -145,8 +144,6 @@ class CandlesBatched(Dataset):
                         [st, ns, p]
                     )
         else:
-
-
             len_data = len(candles)
 
             ## TODO: add spread (ask-bid)

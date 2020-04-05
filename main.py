@@ -9,7 +9,7 @@ from argparse import Namespace
 from fxtrade import OperationalException
 from fxtrade.arguments import Arguments
 from fxtrade.configuration import Configuration, set_loggers
-from fxtrade.fxtradebot import FXTradeBot
+from fxtrade.fxtradebot import ForexTradeBot
 from fxtrade.state import State
 from fxtrade.comm.rpc import RPCMessageType
 
@@ -39,7 +39,7 @@ def main(sysargv):
         # Load and validate configuration
         config = Configuration(args, None).get_config()
         # Init the bot
-        fxtrade = FXTradeBot(config)
+        fxtrade = ForexTradeBot(config)
 
         state = None
         while True:
@@ -65,7 +65,7 @@ def main(sysargv):
         sys.exit(return_code)
 
 
-def reconfigure(fxtrade: FXTradeBot, args: Namespace) -> FXTradeBot:
+def reconfigure(fxtrade: ForexTradeBot, args: Namespace) -> ForexTradeBot:
     """
     Cleans up current instance, reloads the configuration and returns the new instance
     """
@@ -73,7 +73,7 @@ def reconfigure(fxtrade: FXTradeBot, args: Namespace) -> FXTradeBot:
     fxtrade.cleanup()
 
     # Create new instance
-    fxtrade = FXTradeBot(Configuration(args, None).get_config())
+    fxtrade = ForexTradeBot(Configuration(args, None).get_config())
     fxtrade.rpc.send_msg({
         'type': RPCMessageType.STATUS_NOTIFICATION,
         'status': 'config reloaded'

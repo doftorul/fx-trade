@@ -87,6 +87,7 @@ class Telegram(RPC):
             CommandHandler('closeall', self._close_all),
             CommandHandler('reload', self._reload_conf),
             CommandHandler('pairs', self._whitelist),
+            CommandHandler('train', self._train),
         ]
         for handle in handles:
             self._updater.dispatcher.add_handler(handle)
@@ -375,6 +376,19 @@ class Telegram(RPC):
             self._send_msg(message, parse_mode=ParseMode.HTML)
         except RPCException as e:
             self._send_msg(str(e))
+
+    @authorized_only
+    def _train(self, update: Update,  context: CallbackContext) -> None:
+        """
+        Handler for /train
+        """
+
+        self._send_msg(message)
+
+
+        self._send_msg(message)
+
+
 
     @authorized_only
     def _help(self, update: Update, context: CallbackContext) -> None:

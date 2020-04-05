@@ -11,9 +11,14 @@
         "buy": 30,
         "sell": 30
     },
+    "train" : {
+        "net" : "A2C",
+        "epochs" : 2,
+        "weeks" : 2,
+        "batch_size" : 32
+    },
     "strategy": {
-        "type": "neural",
-        "name": "MACD",
+        "name": "AdvantageActorCritic",
         "params": {
             "idle_time" : 5,
             "granularity": 60,

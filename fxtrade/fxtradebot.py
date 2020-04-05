@@ -1,7 +1,3 @@
-"""
-Freqtrade is the main module of this bot. It contains the class Freqtrade()
-"""
-
 import copy
 import logging
 import time
@@ -34,9 +30,9 @@ signal2index = {
 }
 
 def unwrap_self(*arg, **kwarg):
-    return FXTradeBot._process(*arg, **kwarg)
+    return ForexTradeBot._process(*arg, **kwarg)
 
-class FXTradeBot(object):
+class ForexTradeBot(object):
     """
     Freqtrade is the main class of the bot.
     This is from here the bot start its logic.
@@ -151,39 +147,28 @@ class FXTradeBot(object):
             self_list = [self]*len(self.pairlists)
             results = Parallel(n_jobs= -1, backend="threading")(delayed(unwrap_self)(_self,p,s,f) for _self,p,s,f in zip(self_list, self.pairlists, self.strategies, funds))
 
+
+            #updated self pairlists
             self.pairlists = [r[0] for r in results]
-            # closed_order_details = [r[1] for r in results]
             open_order_details = list(itertools.chain.from_iterable([r[1] for r in results]))
             decisions = [r[2] for r in results]
 
-            # closed_order_details = [c for c in closed_order_details if c]
             open_order_details = [o for o in open_order_details if o]
-
-            # closed_order_details = sorted(closed_order_details, key=lambda k: datetime.strptime(k['time'],'%Y-%m-%dT%H:%M:%S'))
-            # open_order_details = sorted(open_order_details, key=lambda k: datetime.strptime(k['time'], '%Y-%m-%dT%H:%M:%S'))
-            # closed_order_details = sorted(closed_order_details, key=lambda k: k['time'])
             open_order_details = sorted(open_order_details, key=lambda k: k['time'])
             decisions = sorted(decisions, key=lambda k: k['time'])
 
-
+            #store open order details to database
             self.persistor.store_opened(open_order_details)
-            # self.persistor.store_closed(closed_order_details)
+
+            #store strategy decisions to database
             self.persistor.store_decisions(decisions)
-            # updated_pairlist = []
-            # for p, s, f in zip(self.pairlists, self.strategies, funds):
-            #     updated_pair = self._process(p,s,f)
-            #     updated_pairlist.append(updated_pair)
-            #self.pairlists = updated_pairlist
 
-
+        #store transactions history to database
         if not self.running_epoch % self.update_transactions_every: 
-
             transactions_list = self.exchange.transactions_since_id(self.since_id)
             self.since_id = self.persistor.store_transactions(transactions_list)
 
-
         self.running_epoch += 1
-
         return state
 
     
@@ -212,8 +197,6 @@ class FXTradeBot(object):
                 "time" : datetime.utcnow(),
                 "instrument" : instrument.name  
             } 
-
-
 
             self.exchange.sync_with_oanda()
             current_position = self.exchange.order_book[instrument.name]['order_type']
