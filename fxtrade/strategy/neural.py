@@ -8,7 +8,7 @@ BUY = 1
 SELL = -1
 HOLD = 0
 
-signals = torch.tensor([BUY, SELL, HOLD])
+signals = torch.tensor([BUY, SELL, HOLD])  #1, -1, 0
 
 class DeepQNetwork(Strategy):
     "DQN approach with DeepSense approximating Q function"
@@ -23,13 +23,16 @@ class AdvantageActorCritic(Strategy):
     "Asynchronous Actor-Critic approach"
     def __init__(self, *args, **kwargs):
         super(AdvantageActorCritic, self).__init__(*args, **kwargs)
-        self.net = PolicyNetwork(num_features=14, num_actions=3)
-        self.net.load_state_dict(path)
+        self.net = PolicyNetwork(
+            num_features=kwargs.get("features", 14), 
+            num_actions=kwargs.get("actions", 3)
+            )
+        self.net.load_state_dict("{}/A2C.pth".format(kwargs.get("weights_dir")))
 
     def action(self, candles):
         
         candles = add_features(self.extract_prices(candles))
 
-        action = signals[torch.argmax(self.net(torch.tensor(candles)))]
-        
-        pass
+        action = signals[torch.argmax(self.net(torch.tensor(candles)))].item()
+
+        return ["hold", "buy", "sell"][action]

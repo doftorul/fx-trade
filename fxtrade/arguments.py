@@ -7,7 +7,7 @@ import os
 import re
 from typing import List, NamedTuple, Optional
 
-from fxtrade import __version__, constants
+from fxtrade import __version__#, constants
 
 
 class TimeRange(NamedTuple):
@@ -101,25 +101,25 @@ class Arguments(object):
             type=str,
             metavar='PATH',
         )
-        self.parser.add_argument(
-            '--customhyperopt',
-            help='specify hyperopt class name (default: %(default)s)',
-            dest='hyperopt',
-            default=constants.DEFAULT_HYPEROPT,
-            type=str,
-            metavar='NAME',
-        )
-        self.parser.add_argument(
-            '--dynamic-whitelist',
-            help='dynamically generate and update whitelist'
-                 ' based on 24h BaseVolume (default: %(const)s)'
-                 ' DEPRECATED.',
-            dest='dynamic_whitelist',
-            const=constants.DYNAMIC_WHITELIST,
-            type=int,
-            metavar='INT',
-            nargs='?',
-        )
+        # self.parser.add_argument(
+        #     '--customhyperopt',
+        #     help='specify hyperopt class name (default: %(default)s)',
+        #     dest='hyperopt',
+        #     default=constants.DEFAULT_HYPEROPT,
+        #     type=str,
+        #     metavar='NAME',
+        # )
+        # self.parser.add_argument(
+        #     '--dynamic-whitelist',
+        #     help='dynamically generate and update whitelist'
+        #          ' based on 24h BaseVolume (default: %(const)s)'
+        #          ' DEPRECATED.',
+        #     dest='dynamic_whitelist',
+        #     const=constants.DYNAMIC_WHITELIST,
+        #     type=int,
+        #     metavar='INT',
+        #     nargs='?',
+        # )
         self.parser.add_argument(
             '--db-url',
             help='Override trades database URL, this is useful if dry_run is enabled'
@@ -257,14 +257,14 @@ class Arguments(object):
             dest='use_max_market_positions',
             default=True
         )
-        parser.add_argument(
-            '-e', '--epochs',
-            help='specify number of epochs (default: %(default)d)',
-            dest='epochs',
-            default=constants.HYPEROPT_EPOCH,
-            type=int,
-            metavar='INT',
-        )
+        # parser.add_argument(
+        #     '-e', '--epochs',
+        #     help='specify number of epochs (default: %(default)d)',
+        #     dest='epochs',
+        #     default=constants.HYPEROPT_EPOCH,
+        #     type=int,
+        #     metavar='INT',
+        # )
         parser.add_argument(
             '-s', '--spaces',
             help='Specify which parameters to hyperopt. Space separate list. \

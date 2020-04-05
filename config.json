@@ -6,23 +6,24 @@
     "stake_amount": 0.3,
     "ticker_interval" : "5m", 
     "dry_run": true,
-    "trailing_stop": false,
-    "unfilledtimeout": {
-        "buy": 30,
-        "sell": 30
-    },
     "train" : {
         "net" : "A2C",
         "epochs" : 2,
         "weeks" : 2,
-        "batch_size" : 32
+        "batch_size" : 32,
+        "num_steps" : 5,
+        "window" : 50,
+        "weights_dir" : "model"
     },
     "strategy": {
         "name": "AdvantageActorCritic",
         "params": {
             "idle_time" : 5,
             "granularity": 60,
-            "count" : 50
+            "count" : 50,
+            "features": 14,
+            "actions": 3,
+            "weights_dir" : "model"
         }
     },
     "ask_strategy":{
@@ -77,7 +78,6 @@
         "chat_id": "138123762"
     },
     "initial_state": "running",
-    "forcebuy_enable": true,
     "internals": {
         "process_throttle_secs": 5
     }

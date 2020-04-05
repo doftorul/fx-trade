@@ -45,6 +45,9 @@ class Configuration(object):
         logger.info('Using config: %s ...', self.args.config)
         config = self._load_config_file(self.args.config)
 
+        print(self.args.strategy)
+        1/0
+
         # Set strategy if not specified in config and or if it's non default
         if self.args.strategy != constants.DEFAULT_STRATEGY or not config.get('strategy'):
             config.update({'strategy': self.args.strategy})

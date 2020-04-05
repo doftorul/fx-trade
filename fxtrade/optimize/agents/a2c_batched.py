@@ -30,7 +30,7 @@ BUY = 1
 SELL = -1
 HOLD = 0
 
-signals = torch.tensor([BUY, SELL, HOLD])
+signals = torch.tensor([BUY, SELL, HOLD])  #1, -1, 0
 
 
 class PolicyNetwork(nn.Module):
@@ -146,7 +146,7 @@ class A2C(object):
             returns[:, step] = R
         return returns # Batch_size x Steps
 
-    def train(self, dataloader, epochs= 5, num_steps=5, window=50):
+    def train(self, dataloader, epochs= 5, num_steps=5, window=50, save_dir=""):
 
         idx = 0
 
@@ -214,9 +214,7 @@ class A2C(object):
 
                 self.writer.add_scalar("train/batch_reward", rewards.sum().data, idx)
                 self.writer.add_scalar("train/batch_potential_profits", potential_profits.sum().data, idx)
-                # graph_profits.append(idx, {"batch_reward":rewards.sum().data, "batch_potential_profits":potential_profits.sum().data})
-
-                
+                # graph_profits.append(idx, {"batch_reward":rewards.sum().data, "batch_potential_profits":potential_profits.sum().data})      
 
                 advantage = returns - values
                 
@@ -242,36 +240,13 @@ class A2C(object):
                 idx += 1
 
         #session.done()
+        self.ensure(save_dir)
+        torch.save(
+            self.actor.state_dict(),
+            '{}/A2C.pth'.format(save_dir)
+        )
 
-        #self.save_model(self.save_output_dir("final"))
-
-    # def save_model(self, output_dir):
-    #     print("Saving the actor and critic")
-    #     torch.save(
-    #         self.actor.state_dict(),
-    #         '{}/actor.pkl'.format(output_dir)
-    #     )
-    #     torch.save(
-    #         self.critic.state_dict(),
-    #         '{}/critic.pkl'.format(output_dir)
-    #     )
-
-    # def save_output_dir(self, episode):
-    #     output_dir = os.path.join(
-    #         self.output_dir, str(episode))
-    #     self.ensure(output_dir)
-        
-    #     return output_dir
-
-    # def load_model(self, load_dir):
-    #     checkpoint_actor = torch.load(os.path.join(load_dir, "actor.pkl"))
-    #     checkpoint_critic = torch.load(os.path.join(load_dir, "critic.pkl"))
-    #     self.actor.load_state_dict(checkpoint_actor)
-    #     self.critic.load_state_dict(checkpoint_critic)
-
-    def unwrapper(self, tensor):
-        return dict((str(i), t) for i, t in enumerate(tensor))
-
-    def ensure(self, _dir):
-        if not os.path.exists(_dir):
-            os.makedirs(_dir)
+    
+    def ensure(self, d):
+        if not os.path.exists(d):
+            os.makedirs(d)

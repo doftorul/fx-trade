@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 import itertools
 from requests.exceptions import RequestException
-
+import os
 from fxtrade import (DependencyException, OperationalException,
                        TemporaryError, __version__)
 from fxtrade.comm.rpc_manager import RPCManager
@@ -18,6 +18,8 @@ from fxtrade.exchange.oanda import Oanda
 from fxtrade.persistence import Persistor
 from multiprocessing import Process, Pool
 from joblib import Parallel, delayed
+
+from fxtrade.optimize.trainer import Trainer
 
 # from pathos.multiprocessing import ProcessingPool as Pool# from libs.factory import DataFactory
 
@@ -57,8 +59,19 @@ class ForexTradeBot(object):
 
         # Init objects
         self.config = config
+
+        self.trainer = Trainer(self.config)
         #this should be a class that is initialised
         self.strategy = retrieve_strategy(self.config["strategy"]["name"])
+
+        if (not os.path.exists(
+            "{}/{}.pth".format(
+                self.config.get("train", {}).get("weights_dir", ""),
+                self.config["strategy"]["name"]
+                )) and (self.config.get("train", {} ))):
+            logger.info('No model found, start training...')
+            self.trainer.run()
+
         self.strategy_params = self.config["strategy"]["params"]
 
         self.stop_loss = self.config["edge"]["stop_loss"]
