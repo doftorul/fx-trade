@@ -45,9 +45,6 @@ class Configuration(object):
         logger.info('Using config: %s ...', self.args.config)
         config = self._load_config_file(self.args.config)
 
-        print(self.args.strategy)
-        1/0
-
         # Set strategy if not specified in config and or if it's non default
         if self.args.strategy != constants.DEFAULT_STRATEGY or not config.get('strategy'):
             config.update({'strategy': self.args.strategy})
@@ -55,8 +52,6 @@ class Configuration(object):
         if self.args.strategy_path:
             config.update({'strategy_path': self.args.strategy_path})
 
-        # Add the hyperopt file to use
-        config.update({'hyperopt': self.args.hyperopt})
 
         # Load Common configuration
         config = self._load_common_config(config)

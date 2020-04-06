@@ -125,7 +125,7 @@ class A2C(object):
             self.policy_optimizer = optimiser_(self.actor.parameters(), lr=policy_lr)
 
         
-    def __call__(self, x): #x is the state, a 1-dim state  
+    def __call__(self, x):
         value = self.critic(x)
         probs = self.actor(x)
         dist  = Categorical(probs)

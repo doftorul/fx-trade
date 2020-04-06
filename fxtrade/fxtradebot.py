@@ -67,7 +67,7 @@ class ForexTradeBot(object):
         if (not os.path.exists(
             "{}/{}.pth".format(
                 self.config.get("train", {}).get("weights_dir", ""),
-                self.config["strategy"]["name"]
+                self.config.get("train", {}).get("net", "")
                 )) and (self.config.get("train", {} ))):
             logger.info('No model found, start training...')
             self.trainer.run()

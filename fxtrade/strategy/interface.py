@@ -54,7 +54,8 @@ class Strategy(ABC):
             self.instrument, 
             granularity, 
             count, 
-            price=price
+            price=price,
+            complete=True
             )
 
     @abstractmethod

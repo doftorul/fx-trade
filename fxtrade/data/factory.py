@@ -1,7 +1,7 @@
 from oandapyV20.contrib.factories import InstrumentsCandlesFactory
 from oandapyV20 import API
 import json
-from datetime import datetime
+import datetime
 import os
 import argparse
 from tqdm import tqdm
@@ -119,7 +119,7 @@ class Downloader(object):
         overall_count = len(list_candles)
 
         if save:
-            now = datetime.now()
+            now = datetime.datetime.now()
 
             namefile = os.path.join(
                 SAVEPATH,

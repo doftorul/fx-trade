@@ -8,7 +8,7 @@
     "dry_run": true,
     "train" : {
         "net" : "A2C",
-        "epochs" : 2,
+        "epochs" : 1,
         "weeks" : 2,
         "batch_size" : 32,
         "num_steps" : 5,
@@ -20,10 +20,11 @@
         "params": {
             "idle_time" : 5,
             "granularity": 60,
-            "count" : 50,
+            "count" : 51,
             "features": 14,
             "actions": 3,
-            "weights_dir" : "model"
+            "weights_dir" : "model",
+            "policy" : "greedy"
         }
     },
     "ask_strategy":{
@@ -64,7 +65,7 @@
         "calculate_since_number_of_days": 7,
         "capital_available_percentage": 0.5,
         "allowed_risk": 0.01,
-        "stop_loss": 0.002,
+        "stop_loss": 0.005,
         "take_profit" : 0.005,
         "minimum_winrate": 0.60,
         "minimum_expectancy": 0.20,
