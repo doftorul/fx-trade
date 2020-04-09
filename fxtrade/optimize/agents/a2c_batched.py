@@ -132,6 +132,7 @@ class A2C(object):
             self.value_optimizer = optimiser_(self.critic.parameters(), lr=value_lr)
             self.policy_optimizer = optimiser_(self.actor.parameters(), lr=policy_lr)
 
+        self.to(device)
         
     def __call__(self, x):
         value = self.critic(x)
@@ -175,7 +176,7 @@ class A2C(object):
 
                     try:
                         state = batch["state"][:, n*window:(n+1)*window]
-                        dist, value, pr = self(state) # dist = Categorical, value: Batch_size x 1
+                        dist, value, pr = self(state.to(device)) # dist = Categorical, value: Batch_size x 1
                         prs.extend(pr)
                         #print(dist)
                         action = dist.sample()  # Batch_size
@@ -187,7 +188,7 @@ class A2C(object):
                         # potential_profit = abs(real_trends)
                         # print(potential_profit)
 
-                        reward = batch["profit"][:, n] * action_values # Batch_size
+                        reward = batch["profit"][:, n].to(device) * action_values # Batch_size
                         # print(reward)
                         # reward = torch.sign(reward)
                         # print(reward)
@@ -209,7 +210,7 @@ class A2C(object):
                         masks.append(torch.ones(log_prob.shape[0])-done) # list of Batch_size vectors to be stacked afterwards
                         potential_profits.append(potential_profit)
                         # state = next_state
-                        next_state = batch["next_state"][:, n*window:(n+1)*window] # Batch_size x 50 (window) x 7 (features)
+                        next_state = batch["next_state"][:, n*window:(n+1)*window].to(device) # Batch_size x 50 (window) x 7 (features)
                     except:
                         traceback.print_exc()
                     # episode += 1
