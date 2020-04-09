@@ -32,7 +32,7 @@ BUY = 1
 SELL = -1
 HOLD = 0
 
-signals = torch.tensor([BUY, SELL, HOLD])  #1, -1, 0
+signals = torch.tensor([BUY, SELL, HOLD]).to(device)  #1, -1, 0
 
 def plot_histograms(writer, net, name, idx):
     sd = net.state_dict()
@@ -150,7 +150,7 @@ class A2C(object):
 
         R = next_value  # Batch_size
         # print(R)
-        returns = torch.zeros((rewards.shape[0], rewards.shape[1]))
+        returns = torch.zeros((rewards.shape[0], rewards.shape[1])).to(device)
         # print(returns.shape)
         for step in reversed(range(rewards.shape[1])):
             R = rewards[:, step] + self.gamma * R * masks[:, step]
@@ -194,9 +194,9 @@ class A2C(object):
                         # reward = torch.sign(reward)
                         # print(reward)
 
-                        actions.extend(action_values.detach().numpy().tolist())
+                        actions.extend(action_values.detach().cpu().numpy().tolist())
 
-                        penalties_for_holding = torch.ones(reward.shape[0])*(-5)
+                        penalties_for_holding = torch.ones(reward.shape[0]).to(device)*(-5)
                         reward = torch.where(reward == 0, penalties_for_holding, reward)
 
                         done = 0
@@ -205,10 +205,12 @@ class A2C(object):
                         log_prob = dist.log_prob(action)  # Batch_size
                         entropy += dist.entropy().mean()   # Batch_size
                         
+
                         log_probs.append(log_prob)  # list of Batch_size vectors to be stacked afterwards 
+
                         values.append(value.squeeze()) # list of to Batch_size vectors be stacked afterwards
-                        rewards.append(torch.FloatTensor(reward)) # list of Batch_size vectors to be stacked afterwards
-                        masks.append(torch.ones(log_prob.shape[0])-done) # list of Batch_size vectors to be stacked afterwards
+                        rewards.append(reward) # list of Batch_size vectors to be stacked afterwards
+                        masks.append(torch.ones(log_prob.shape[0]).to(device)-done) # list of Batch_size vectors to be stacked afterwards
                         potential_profits.append(potential_profit)
                         # state = next_state
                         next_state = batch["next_state"][:, n*window:(n+1)*window].to(device) # Batch_size x 50 (window) x 7 (features)
@@ -224,7 +226,6 @@ class A2C(object):
                 potential_profits = torch.stack(potential_profits).T # Batch_size x Steps
                 rewards = torch.stack(rewards).T # Batch_size x Steps
                 masks = torch.stack(masks).T # Batch_size x Steps
-
                 returns = self.compute_returns(next_value, rewards, masks)
                 
                 log_probs = torch.stack(log_probs).T # Batch_size x Steps
