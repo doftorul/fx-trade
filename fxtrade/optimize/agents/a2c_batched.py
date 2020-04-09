@@ -194,7 +194,7 @@ class A2C(object):
 
                         actions.extend(action_values.detach().numpy().tolist())
 
-                        penalties_for_holding = torch.ones(reward.shape[0])*(-3)
+                        penalties_for_holding = torch.ones(reward.shape[0])*(-0.1)
                         reward = torch.where(reward == 0, penalties_for_holding, reward)
 
                         done = 0
