@@ -132,7 +132,8 @@ class A2C(object):
             self.value_optimizer = optimiser_(self.critic.parameters(), lr=value_lr)
             self.policy_optimizer = optimiser_(self.actor.parameters(), lr=policy_lr)
 
-        self.to(device)
+        self.actor.to(device)
+        self.critic.to(device)
         
     def __call__(self, x):
         value = self.critic(x)
