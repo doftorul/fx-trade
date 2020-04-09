@@ -383,12 +383,9 @@ class Telegram(RPC):
         Handler for /train
         """
 
-        self._send_msg(message)
-
-
-        self._send_msg(message)
-
-
+        self._send_msg('Status: `training started...`')
+        self._fxtrade.trainer.run()
+        self._send_msg('Status: `training ended, must reload.`')
 
     @authorized_only
     def _help(self, update: Update, context: CallbackContext) -> None:

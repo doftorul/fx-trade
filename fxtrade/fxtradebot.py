@@ -101,7 +101,7 @@ class ForexTradeBot(object):
             self.strategy(
                 api=self.exchange, 
                 instrument=pair, 
-                kwargs=self.strategy_params) for pair in self.pairlists
+                **self.strategy_params) for pair in self.pairlists
             ]
         
         # Initializing Edge only if enabled
@@ -260,29 +260,3 @@ class ForexTradeBot(object):
 
         transactions_list = self.exchange.transactions_since_id(self.since_id)
         self.since_id = self.persistor.store_transactions(transactions_list)
-
-        # self.rpc.send_msg({
-        #     'type' : RPCMessageType.CUSTOM_NOTIFICATION,
-        #     'status' : "*Closing* all orders..."
-        # })
-
-    # def something(self):
-
-    #     self.rpc.send_msg({
-    #         'type': RPCMessageType.BUY_NOTIFICATION,
-    #         'exchange': self.exchange.name.capitalize(),
-    #         'pair': pair_s,
-    #         'market_url': pair_url,
-    #         'limit': buy_limit_filled_price,
-    #         'stake_amount': stake_amount,
-    #         'stake_currency': stake_currency,
-    #         'fiat_currency': fiat_currency
-    #     })
-
-    
-    #     self.rpc.send_msg({
-    #             'type': RPCMessageType.STATUS_NOTIFICATION,
-    #             'status': f'Unfilled sell order for {trade.pair} cancelled {reason}'
-    #         })
-
-    #     return False

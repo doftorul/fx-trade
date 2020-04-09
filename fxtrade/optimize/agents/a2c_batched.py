@@ -8,8 +8,10 @@ import numpy as np
 import os
 from datetime import datetime
 from tqdm import tqdm
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import traceback
+
+from fxtrade.optimize.agents.utils import weight_init
 
 """import losswise
 losswise.set_api_key('SA04W2342')
@@ -32,9 +34,12 @@ HOLD = 0
 
 signals = torch.tensor([BUY, SELL, HOLD])  #1, -1, 0
 
-
+def plot_histograms(writer, net, name, idx):
+    sd = net.state_dict()
+    for i in sd:
+        writer.add_histogram("{}/{}".format(name, i), sd[i], idx)
 class PolicyNetwork(nn.Module):
-    def __init__(self, num_features, num_actions):
+    def __init__(self, num_features, num_actions, hidden_size=32):
         super(PolicyNetwork, self).__init__()
 
         self.gru1 = nn.GRU(input_size = num_features,
@@ -64,7 +69,7 @@ class PolicyNetwork(nn.Module):
         return x
 
 class ValueNetwork(nn.Module):
-    def __init__(self, num_features):
+    def __init__(self, num_features, hidden_size=32):
         super(ValueNetwork, self).__init__()
 
         self.gru1 = nn.GRU(input_size = num_features,
@@ -92,7 +97,7 @@ class ValueNetwork(nn.Module):
         return x
 
 class A2C(object):
-    def __init__(self, state_dim=14, action_dim=3, gamma=0.99, 
+    def __init__(self, state_dim=9, action_dim=3, gamma=0.3, 
         optimiser="Adam", value_lr=1e-3,
         policy_lr=1e-4, load_dir="", conv=False, debug=False, 
         output_dir="tensorboard", write=True, save=True, test_every=1000, test_only=False):
@@ -107,6 +112,9 @@ class A2C(object):
         self.critic = ValueNetwork(state_dim)
         self.actor = PolicyNetwork(state_dim, action_dim)
 
+        self.critic.apply(weight_init)
+        self.actor.apply(weight_init)
+
         # if load_dir: self.load_model(load_dir)
 
         self.test_only =test_only
@@ -115,7 +123,7 @@ class A2C(object):
             self.output_dir = os.path.join(output_dir, self.init_time)
             self.ensure(output_dir)
             if self.write:
-                self.writer = SummaryWriter(log_dir=self.output_dir)
+                self.writer = SummaryWriter()#log_dir=self.output_dir)
                 #self.dummy_input = torch.autograd.Variable(torch.rand(1, state_dim))
                 #self.writer.add_graph(self.critic, self.dummy_input)
                 #self.writer.add_graph(self.actor, self.dummy_input)
@@ -128,8 +136,9 @@ class A2C(object):
     def __call__(self, x):
         value = self.critic(x)
         probs = self.actor(x)
+        pr = [torch.max(p).item() for p in probs]
         dist  = Categorical(probs)
-        return dist, value
+        return dist, value, pr
 
     def compute_returns(self, next_value, rewards, masks):
 
@@ -160,18 +169,32 @@ class A2C(object):
                 entropy = 0
 
                 for n in range(num_steps):
+                    
+                    prs = []
+                    actions = []
+
                     try:
                         state = batch["state"][:, n*window:(n+1)*window]
-                        dist, value = self(state) # dist = Categorical, value: Batch_size x 1
+                        dist, value, pr = self(state) # dist = Categorical, value: Batch_size x 1
+                        prs.extend(pr)
                         #print(dist)
                         action = dist.sample()  # Batch_size
                         action_values = signals[action] # Batch_size
 
                         potential_profit = abs(batch["profit"][:, n])
+                        # print(potential_profit)
+                        real_trends = torch.sign(batch["profit"][:, n])
+                        # potential_profit = abs(real_trends)
+                        # print(potential_profit)
 
                         reward = batch["profit"][:, n] * action_values # Batch_size
+                        # print(reward)
+                        # reward = torch.sign(reward)
+                        # print(reward)
 
-                        penalties_for_holding = torch.ones(reward.shape[0])*(-1)
+                        actions.extend(action_values.detach().numpy().tolist())
+
+                        penalties_for_holding = torch.ones(reward.shape[0])*(-3)
                         reward = torch.where(reward == 0, penalties_for_holding, reward)
 
                         done = 0
@@ -192,7 +215,7 @@ class A2C(object):
                     # episode += 1
 
                 # next_state = torch.FloatTensor(next_state).to(device) #next state is the next state element of the last transition
-                _, next_value = self(next_state)
+                _, next_value, _ = self(next_state)
                 # print(next_value.shape)
                 next_value = next_value.squeeze(1) # value: Batch_size
 
@@ -208,12 +231,19 @@ class A2C(object):
                 #print(values.mean())
                 self.writer.add_scalar("train/mean_return", returns.mean().data, idx)
                 self.writer.add_scalar("train/mean_value_function", values.mean().data, idx)
+                
+                self.writer.add_histogram("train/actions", np.array(actions), idx)
+                self.writer.add_histogram("train/probs", np.array(prs), idx)
+                self.writer.add_histogram("train/real_trends", real_trends, idx)
 
                 # graph_values.append(idx, {"mean_return":returns.mean().data, "mean_value_function":values.mean().data})
 
 
-                self.writer.add_scalar("train/batch_reward", rewards.sum().data, idx)
-                self.writer.add_scalar("train/batch_potential_profits", potential_profits.sum().data, idx)
+                self.writer.add_scalars(
+                    "train/reward", {"reward":rewards.sum().data, 
+                    "potential":potential_profits.sum().data}, 
+                    idx)
+                # self.writer.add_scalar("train/batch_potential_profits", potential_profits.sum().data, idx)
                 # graph_profits.append(idx, {"batch_reward":rewards.sum().data, "batch_potential_profits":potential_profits.sum().data})      
 
                 advantage = returns - values
@@ -224,7 +254,7 @@ class A2C(object):
                 critic_loss = advantage.pow(2).mean()
                 self.writer.add_scalar("losses/critic_loss", critic_loss.data, idx)
 
-                loss = actor_loss + 0.5 * critic_loss - 0.001 * entropy
+                loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
                 self.writer.add_scalar("losses/loss", loss.data, idx)
 
                 # graph_loss.append(idx, {"actor":actor_loss.data, "critic":critic_loss.data, "loss":loss.data, "entropy":entropy.data})
@@ -236,6 +266,14 @@ class A2C(object):
                 loss.backward()
                 self.value_optimizer.step()
                 self.policy_optimizer.step()
+
+                plot_histograms(self.writer, self.actor.gru2, "policy/gru", idx)
+                # plot_histograms(self.writer, self.actor.linear1, "policy/l1", idx)
+                plot_histograms(self.writer, self.actor.linear2, "policy/l2", idx)
+
+                plot_histograms(self.writer, self.critic.gru2, "value/gru", idx)
+                # plot_histograms(self.writer, self.critic.linear1, "value/l1", idx)
+                plot_histograms(self.writer, self.critic.linear2, "value/l2", idx)         
 
                 idx += 1
 

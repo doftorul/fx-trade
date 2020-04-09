@@ -8,8 +8,8 @@
     "dry_run": true,
     "train" : {
         "net" : "A2C",
-        "epochs" : 1,
-        "weeks" : 2,
+        "epochs" : 30,
+        "weeks" : 1,
         "batch_size" : 32,
         "num_steps" : 5,
         "window" : 50,
@@ -21,7 +21,7 @@
             "idle_time" : 5,
             "granularity": 60,
             "count" : 51,
-            "features": 14,
+            "features": 9,
             "actions": 3,
             "weights_dir" : "model",
             "policy" : "greedy"
@@ -44,15 +44,16 @@
         "port": 443,
         "ssl": true,
         "pair_whitelist": [
-            "EUR_USD",
+            "EUR_USD"
+        ],
+        "pair_blacklist": [
             "GBP_USD",
             "AUD_USD",
             "NZD_USD",
             "USD_CAD",
             "USD_JPY",
             "USD_CHF"
-        ],
-        "pair_blacklist": []
+        ]
     },
     "experimental": {
         "use_sell_signal": false,

@@ -16,6 +16,14 @@ Transition = namedtuple('Transition', ['state', 'next_state', 'profit'])
 
 from fxtrade.data.indicators import add_features
 
+
+def scale(x):
+    # PyTorch impl scaler
+    m = x.mean(0, keepdim=True)
+    s = x.std(0, unbiased=False, keepdim=True)
+    x -= m
+    x /= s
+    return x
 class TradingEnvironment():
     def __init__(self, datapath, window=50, steps=10):
 
@@ -91,38 +99,72 @@ class TradingEnvironment():
         return transation.state
 
 
-
+SAVED_CANDLES_DEFAULT_PATH = "fxtrade/data/candles/last_candles.json"
 
 class CandlesBatched(Dataset):
-    def __init__(self, datapath, window=50, steps=5, instrument=None):
-
-        if type(datapath) == str:
-            with open(datapath, "r") as dp: 
-                candles = json.load(dp)
-            pip_conversion = 10000 if "JPY" not in datapath else 100
-        else:
-            candles = datapath
-            # pip_conversion = 10000 if "JPY" not in instrument else 100
-        self.steps = steps
+    def __init__(self, datapath, window=50, steps=5, instrument=None, load=False, save=False):
         
-        self.samples = []
+        if not load and not os.path.exists(SAVED_CANDLES_DEFAULT_PATH):
+            if type(datapath) == str:
+                with open(datapath, "r") as dp: 
+                    candles = json.load(dp)
+                pip_conversion = 10000 if "JPY" not in datapath else 100
+            else:
+                candles = datapath
+                # pip_conversion = 10000 if "JPY" not in instrument else 100
+            self.steps = steps
+            
+            self.samples = []
 
-        if instrument:
-            for ins, c in zip(instrument, candles):
+            if instrument:
+                for ins, c in zip(instrument, candles):
 
-                logger.info("Creating batches for {}".format(ins))
+                    logger.info("Creating batches for {}".format(ins))
 
-                pip_conversion = 10000 if "JPY" not in ins else 100
+                    pip_conversion = 10000 if "JPY" not in ins else 100
 
-                len_data = len(c)
+                    len_data = len(c)
+
+                    data = []
+                    for i in range(0, len_data-window):
+                        data.append(
+                            (
+                                c[i:i+window], 
+                                c[i+1:i+window+1], 
+                                # round(pip_conversion*(c[i+1:i+window+1][-1][5]-c[i:i+window][-1][4]),1) bidclose-askclose
+                                round(pip_conversion*(c[i+1:i+window+1][-1][1]-c[i:i+window][-1][1]),1) #midclose - midclose
+                            )
+                        )
+                
+                    lendata = len(data)
+
+                    featured_data = []
+
+                    for d in tqdm(data):
+                        featured_data.append([add_features(d[0]), add_features(d[1]), d[2]])
+
+                    
+                    
+                    for d in range(0, lendata-self.steps):
+                        actual = featured_data[d:d+self.steps]
+                        st = [a[0] for a in actual]
+                        ns = [a[1] for a in actual]
+                        p = [a[2] for a in actual]
+                        self.samples.append(
+                            [st, ns, p]
+                        )
+            else:
+                len_data = len(candles)
+
+                ## TODO: add spread (ask-bid)
 
                 data = []
                 for i in range(0, len_data-window):
                     data.append(
                         (
-                            c[i:i+window], 
-                            c[i+1:i+window+1], 
-                            round(pip_conversion*(c[i+1:i+window+1][-1][4]-c[i:i+window][-1][5]),1)
+                            candles[i:i+window], 
+                            candles[i+1:i+window+1], 
+                            round(pip_conversion*(candles[i+1:i+window+1][-1][4]-candles[i:i+window][-1][5]),1)
                         )
                     )
             
@@ -134,7 +176,7 @@ class CandlesBatched(Dataset):
                     featured_data.append([add_features(d[0]), add_features(d[1]), d[2]])
 
                 
-                
+                self.samples = []
                 for d in range(0, lendata-self.steps):
                     actual = featured_data[d:d+self.steps]
                     st = [a[0] for a in actual]
@@ -143,38 +185,12 @@ class CandlesBatched(Dataset):
                     self.samples.append(
                         [st, ns, p]
                     )
+
+            if save:
+                with open(SAVED_CANDLES_DEFAULT_PATH, "w") as json_file:
+                    json.dump(self.samples, json_file)
         else:
-            len_data = len(candles)
-
-            ## TODO: add spread (ask-bid)
-
-            data = []
-            for i in range(0, len_data-window):
-                data.append(
-                    (
-                        candles[i:i+window], 
-                        candles[i+1:i+window+1], 
-                        round(pip_conversion*(candles[i+1:i+window+1][-1][4]-candles[i:i+window][-1][5]),1)
-                    )
-                )
-        
-            lendata = len(data)
-
-            featured_data = []
-
-            for d in tqdm(data):
-                featured_data.append([add_features(d[0]), add_features(d[1]), d[2]])
-
-            
-            self.samples = []
-            for d in range(0, lendata-self.steps):
-                actual = featured_data[d:d+self.steps]
-                st = [a[0] for a in actual]
-                ns = [a[1] for a in actual]
-                p = [a[2] for a in actual]
-                self.samples.append(
-                    [st, ns, p]
-                )
+            self.samples = json.load(open(SAVED_CANDLES_DEFAULT_PATH, "r"))
 
     def __len__(self):
         return len(self.samples)

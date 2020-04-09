@@ -28,7 +28,8 @@ class AdvantageActorCritic(Strategy):
             num_features=kwargs.get("features", 14), 
             num_actions=kwargs.get("actions", 3)
             )
-        self.net.load_state_dict("{}/A2C.pth".format(kwargs.get("weights_dir")))
+
+        self.net.load_state_dict(torch.load("{}/A2C.pth".format(kwargs.get("weights_dir"))))
 
         self.policy_type = kwargs.get("policy", "greedy")
 

@@ -9,21 +9,6 @@ from tqdm import tqdm
 import logging
 logger = logging.getLogger(__name__)
 
-
-"""
-
-Usage
-
-from factory import Retriever
-dw = Downloader(token="", environment="")
-
-data = dw("EUR_USD", 9, 13, save=True, granularity="S30")
-
-where 9 and 13 are start and end days of the current month
-
-
-"""
-
 # api = API(access_token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
 
 SAVEPATH="candles"
@@ -99,19 +84,15 @@ class Downloader(object):
 
         list_candles = []
         for candle in tqdm(candles):
-            for k in ["bid", "ask", "mid"]:
-                for x in ["o", "c", "h", "l"]:
-                    candle["{}_{}".format(k, x)] = candle[k][x]
-                candle.pop(k)
-
+            
             list_candles.append(
                 [
-                    float(candle["mid_o"]),   # middle open
-                    float(candle["mid_c"]),   # middle close
-                    float(candle["mid_h"]),   # middle high
-                    float(candle["mid_l"]),   # middle low
-                    float(candle["ask_c"]),   # ask close
-                    float(candle["bid_c"]),   # bid close
+                    float(candle["mid"]["o"]),   # middle open
+                    float(candle["mid"]["c"]),   # middle open
+                    float(candle["mid"]["h"]),   # middle open
+                    float(candle["mid"]["l"]),   # middle open
+                    #float(candle["ask_c"]),   # ask close
+                    #float(candle["bid_c"]),   # bid close
                     candle["volume"]
                 ]
             )

@@ -9,6 +9,9 @@ from torch.utils.data import DataLoader
 import json
 import logging
 
+logger = logging.getLogger('fxtrade')
+
+
 NEURAL_NET_DICTIONARY = {
     "A2C": A2C,
     "DQN": DQN,
@@ -28,34 +31,47 @@ class Trainer(object):
         self.weeks_training = config["train"]["weeks"]
         self.instruments = config["exchange"]["pair_whitelist"]
 
-    def run(self):
+    def run(self, load=False):
 
-        days_from_to = get_time_interval(self.weeks_training)
+        if not load:
+            days_from_to = get_time_interval(self.weeks_training)
 
-        candles = []
-        instruments = []
+            candles = []
+            instruments = []
 
-        for (_from,_to) in days_from_to:
-            for i in self.instruments:
-                c = self.downloader(
-                    instrument = i,
-                    _from = _from,
-                    _to = _to
+            for (_from,_to) in days_from_to:
+                for i in self.instruments:
+                    c = self.downloader(
+                        instrument = i,
+                        _from = _from,
+                        _to = _to
+                    )
+                    candles.append(c)
+                    instruments.append(i)
+            
+            dataset = CandlesBatched(
+                datapath=candles, 
+                window=self.window,
+                steps=self.num_steps,
+                instrument=instruments
                 )
-                candles.append(c)
-                instruments.append(i)
 
-        dataset = CandlesBatched(
-            datapath=candles, 
-            window=self.window,
-            steps=self.num_steps,
-            instrument=instruments
-            )
+        else:
+            candles = json.load(open(load, "r"))
+            instruments = []
+
+            dataset = CandlesBatched(
+                datapath=candles, 
+                window=self.window,
+                steps=self.num_steps,
+                instrument=instruments
+                )
             
         dataloader = DataLoader(
             dataset=dataset, 
             batch_size=self.batch_size,
-            shuffle=True
+            shuffle=True,
+            num_workers=4
             )
 
         self.net.train(

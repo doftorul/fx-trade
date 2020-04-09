@@ -155,3 +155,5 @@ rl-finance-pdfs
 
 fxtrade/data/candles
 tensorboard
+runs
+model
