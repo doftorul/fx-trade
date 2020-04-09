@@ -9,13 +9,20 @@ def norm(l):
     return x.tolist()
 
 
-def add_features(timeseries):
+def add_features(timeseries, scale=False):
 
-    o = norm([t[0] for t in timeseries])
-    c = norm([t[1] for t in timeseries])
-    h = norm([t[2] for t in timeseries])
-    l = norm([t[3] for t in timeseries])
-    v = norm([t[4] for t in timeseries])
+    if scale:
+        o = norm([t[0] for t in timeseries])
+        c = norm([t[1] for t in timeseries])
+        h = norm([t[2] for t in timeseries])
+        l = norm([t[3] for t in timeseries])
+        v = norm([t[4] for t in timeseries])
+    else:
+        o = [t[0] for t in timeseries]
+        c = [t[1] for t in timeseries]
+        h = [t[2] for t in timeseries]
+        l = [t[3] for t in timeseries]
+        v = [t[4] for t in timeseries]
 
     ma7 = pd.Series(c).rolling(window=7).mean().fillna(0).tolist()
     ma21 = pd.Series(c).rolling(window=21).mean().fillna(0).tolist()

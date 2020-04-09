@@ -97,7 +97,7 @@ class ValueNetwork(nn.Module):
         return x
 
 class A2C(object):
-    def __init__(self, state_dim=9, action_dim=3, gamma=0.3, 
+    def __init__(self, state_dim=9, action_dim=3, gamma=0.99, 
         optimiser="Adam", value_lr=1e-3,
         policy_lr=1e-4, load_dir="", conv=False, debug=False, 
         output_dir="tensorboard", write=True, save=True, test_every=1000, test_only=False):
@@ -194,7 +194,7 @@ class A2C(object):
 
                         actions.extend(action_values.detach().numpy().tolist())
 
-                        penalties_for_holding = torch.ones(reward.shape[0])*(-0.1)
+                        penalties_for_holding = torch.ones(reward.shape[0])*(-5)
                         reward = torch.where(reward == 0, penalties_for_holding, reward)
 
                         done = 0
