@@ -48,13 +48,13 @@ def pairwise_squared_distances(x, w):
 
     return torch.clamp(dist, 0.0, np.inf) 
 
-class SOM(nn.Module):
+class SelfOrganizingMap(nn.Module):
     """
     2-D Self-Organizing Map with Gaussian Neighbourhood function
     and linearly decreasing learning rate.
     """
     def __init__(self, m=30, n=30, dim=100, beta=0.15, sigma=None):
-        super(SOM, self).__init__()
+        super(SelfOrganizingMap, self).__init__()
         self.m = m
         self.n = n
         self.dim = dim
@@ -212,10 +212,12 @@ class DeepMotorMap(object):
         self.optimizer = optimiser_(self.lstm.parameters(), lr=lr)
         self.criterion = nn.NLLLoss()
 
-        self.motormap = SOM(m=30, n=30, dim=seq_len, beta=beta)
+        self.motormap = SelfOrganizingMap(m=30, n=30, dim=seq_len, beta=beta)
 
         self.lstm.to(device)
         self.motormap.to(device)
+
+        # TODO: Add tensorboard writer
 
     @staticmethod
     def ensure(d):
