@@ -256,10 +256,7 @@ class DeepMotorMap(object):
                             real_trend=real_trends[j]
                         )
 
-                        
-
-
-                    mean_loss += loss.item()/dataloader.batch_size/len(dataloader)
+                    mean_loss += loss.item()/batch_size/len(dataloader)
                 
                 
                 losses.append(mean_loss)
