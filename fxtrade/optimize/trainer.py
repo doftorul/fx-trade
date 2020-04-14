@@ -20,7 +20,7 @@ NEURAL_NET_DICTIONARY = {
 
 
 class Trainer(object):
-    def __init__(self, config):
+    def __init__(self, config, arbitrage=False):
         self.net = NEURAL_NET_DICTIONARY[config["train"]["net"]]()
         self.epochs = config["train"]["epochs"]
         self.batch_size = config["train"]["batch_size"]

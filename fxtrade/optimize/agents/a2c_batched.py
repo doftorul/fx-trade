@@ -39,67 +39,159 @@ def plot_histograms(writer, net, name, idx):
     for i in sd:
         writer.add_histogram("{}/{}".format(name, i), sd[i], idx)
 class PolicyNetwork(nn.Module):
-    def __init__(self, num_features, num_actions, hidden_size=32):
+    def __init__(self, num_features, num_actions, hidden_size=64, gru_layers=4):
         super(PolicyNetwork, self).__init__()
 
         self.gru1 = nn.GRU(input_size = num_features,
-                            hidden_size = 64,
+                            hidden_size = hidden_size,
+                            num_layers=gru_layers,
                             #dropout=0.5, 
                             batch_first=True)
 
-        self.gru2 = nn.GRU(input_size = 64,
-                            hidden_size = 32,
-                            #dropout=0.5, 
-                            batch_first=True)
+        self.hidden2nn = nn.Linear(gru_layers, 1)
 
-        self.linear1 = nn.Linear(32, 32)
+        self.linear1 = nn.Linear(hidden_size, 32)
         self.linear2 = nn.Linear(32, num_actions)
 
         self.softmax = nn.Softmax(dim=1)
 
-        self.activation = nn.LeakyReLU(0.1)
+        self.activation = nn.Tanh()
         # self.activation = nn.Tanh()
 
     def forward(self, state):
-        x = self.activation(self.gru1(state)[0])
-        x = self.activation(self.gru2(x)[1])
-        x = x.squeeze(0)
+        x = self.activation(self.gru1(state)[1])
+        x = x.permute(1,2,0)
+        x = self.hidden2nn(x)
+        x = x.squeeze(-1)
+
         x = self.activation(self.linear1(x))
         x = self.softmax(self.linear2(x))
         return x
 
 class ValueNetwork(nn.Module):
-    def __init__(self, num_features, hidden_size=32):
+    def __init__(self, num_features, hidden_size=64, gru_layers=2):
         super(ValueNetwork, self).__init__()
 
         self.gru1 = nn.GRU(input_size = num_features,
-                            hidden_size = 64,
+                            hidden_size = hidden_size,
+                            num_layers=gru_layers,
                             #dropout=0.5, 
                             batch_first=True)
 
-        self.gru2 = nn.GRU(input_size = 64,
-                            hidden_size = 32,
-                            #dropout=0.5, 
-                            batch_first=True)
+        # self.gru2 = nn.GRU(input_size = 64,
+        #                     hidden_size = 32,
+        #                     #dropout=0.5, 
+        #                     batch_first=True)
 
-        self.linear1 = nn.Linear(32, 32)
+        self.hidden2nn = nn.Linear(gru_layers, 1)
+        self.linear1 = nn.Linear(hidden_size, 32)
         self.linear2 = nn.Linear(32, 1)
 
-        self.activation = nn.LeakyReLU(0.1)
+        self.activation = nn.Tanh()
         # self.activation = nn.Tanh()
 
     def forward(self, state):
-        x = self.activation(self.gru1(state)[0])
-        x = self.activation(self.gru2(x)[1])
-        x = x.squeeze(0)
+        x = self.activation(self.gru1(state)[1])
+
+        print(x.shape)
+        x = x.permute(1,2,0)
+        print(x.shape)
+        1/0
+
+        x = self.hidden2nn(x)
+        x = x.squeeze(-1)
+
         x = self.activation(self.linear1(x))
         x = self.linear2(x)
         return x
 
+
+class PolicyNetworkCNN(nn.Module):
+    def __init__(self, num_features, num_actions, hidden_size=64, gru_layers=4):
+        super(PolicyNetworkCNN, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=2, kernel_size=(3,1))
+        self.conv2 = nn.Conv2d(in_channels=2, out_channels=4, kernel_size=(2,2), stride=2)
+        self.pool = nn.AvgPool2d(kernel_size=(4,1))
+        self.maxpool = nn.MaxPool2d(kernel_size=(2,1))
+
+        self.fc1 = nn.Conv2d(in_channels=4, out_channels=16, kernel_size=(3,2))
+        self.fc2 = nn.Conv2d(in_channels=16, out_channels=num_actions, kernel_size=(1,1))
+
+
+        self.hidden2nn = nn.Linear(gru_layers, 1)
+
+        self.linear1 = nn.Linear(hidden_size, 32)
+        self.linear2 = nn.Linear(32, num_actions)
+
+        self.softmax = nn.Softmax(dim=1)
+
+        self.activation = nn.Tanh()
+        # self.activation = nn.Tanh()
+
+    def forward(self, state):
+
+        # state dim: Batch x seq_len (50) x n_features (4)
+
+        state = state.unsqueeze(1)
+        state = self.activation(self.conv1(state))
+        x = self.pool(state)
+
+        x = self.activation(self.conv2(x))
+
+        x = self.maxpool(x)
+
+        x = self.activation(self.fc1(x))
+        x = self.activation(self.fc2(x))
+
+        x = self.softmax(x.squeeze(2).squeeze(2))
+        return x
+
+
+class ValueNetworkCNN(nn.Module):
+    def __init__(self, num_features, hidden_size=64, gru_layers=4):
+        super(ValueNetworkCNN, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=2, kernel_size=(3,1))
+        self.conv2 = nn.Conv2d(in_channels=2, out_channels=4, kernel_size=(2,2), stride=2)
+        self.pool = nn.AvgPool2d(kernel_size=(4,1))
+        self.maxpool = nn.MaxPool2d(kernel_size=(2,1))
+
+        self.fc1 = nn.Conv2d(in_channels=4, out_channels=16, kernel_size=(3,2))
+        self.fc2 = nn.Conv2d(in_channels=16, out_channels=1, kernel_size=(1,1))
+
+        # self.gru2 = nn.GRU(input_size = 64,
+        #                     hidden_size = 32,
+        #                     #dropout=0.5, 
+        #                     batch_first=True)
+
+        self.hidden2nn = nn.Linear(gru_layers, 1)
+        self.linear1 = nn.Linear(hidden_size, 32)
+        self.linear2 = nn.Linear(32, 1)
+
+        self.activation = nn.Tanh()
+        # self.activation = nn.Tanh()
+
+    def forward(self, state):
+
+        # state dim: Batch x seq_len (50) x n_features (4)
+
+        state = state.unsqueeze(1)
+        state = self.activation(self.conv1(state))
+        x = self.pool(state)
+        x = self.activation(self.conv2(x))
+        x = self.maxpool(x)
+
+        x = self.activation(self.fc1(x))
+        x = self.activation(self.fc2(x))
+
+        x = x.squeeze(2).squeeze(2)
+
+        return x
 class A2C(object):
-    def __init__(self, state_dim=9, action_dim=3, gamma=0.99, 
-        optimiser="Adam", value_lr=1e-3,
-        policy_lr=1e-4, load_dir="", conv=False, debug=False, 
+    def __init__(self, state_dim=4, action_dim=3, gamma=0.9, 
+        optimiser="RMSprop", value_lr=1e-4,
+        policy_lr=1e-5, load_dir="", conv=False, debug=False, 
         output_dir="tensorboard", write=True, save=True, test_every=1000, test_only=False):
 
         if test_every:
@@ -109,8 +201,13 @@ class A2C(object):
         self.write = write
 
         self.gamma = gamma
-        self.critic = ValueNetwork(state_dim)
-        self.actor = PolicyNetwork(state_dim, action_dim)
+
+        if not conv:
+            self.critic = ValueNetwork(state_dim)
+            self.actor = PolicyNetwork(state_dim, action_dim)
+        else:
+            self.critic = ValueNetworkCNN(state_dim)
+            self.actor = PolicyNetworkCNN(state_dim, action_dim)
 
         self.critic.apply(weight_init)
         self.actor.apply(weight_init)
@@ -183,20 +280,20 @@ class A2C(object):
                         action = dist.sample()  # Batch_size
                         action_values = signals[action] # Batch_size
 
-                        potential_profit = abs(batch["profit"][:, n])
+                        potential_profit = abs(torch.log(batch["profit"][:, n]))
                         # print(potential_profit)
-                        real_trends = torch.sign(batch["profit"][:, n])
+                        real_trends = torch.sign(torch.log(batch["profit"][:, n]))
                         # potential_profit = abs(real_trends)
                         # print(potential_profit)
 
-                        reward = batch["profit"][:, n].to(device) * action_values # Batch_size
+                        reward = torch.log( batch["profit"][:, n].to(device) ) * action_values * 10# Batch_size
                         # print(reward)
                         # reward = torch.sign(reward)
                         # print(reward)
 
                         actions.extend(action_values.detach().cpu().numpy().tolist())
 
-                        penalties_for_holding = torch.ones(reward.shape[0]).to(device)*(-5)
+                        penalties_for_holding = torch.ones(reward.shape[0]).to(device)*(torch.log(torch.tensor(0.5)))
                         reward = torch.where(reward == 0, penalties_for_holding, reward)
 
                         done = 0
@@ -257,7 +354,7 @@ class A2C(object):
                 critic_loss = advantage.pow(2).mean()
                 self.writer.add_scalar("losses/critic_loss", critic_loss.data, idx)
 
-                loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
+                loss = actor_loss + 0.5 * critic_loss - 0.001 * entropy
                 self.writer.add_scalar("losses/loss", loss.data, idx)
 
                 # graph_loss.append(idx, {"actor":actor_loss.data, "critic":critic_loss.data, "loss":loss.data, "entropy":entropy.data})
@@ -270,13 +367,15 @@ class A2C(object):
                 self.value_optimizer.step()
                 self.policy_optimizer.step()
 
-                plot_histograms(self.writer, self.actor.gru2, "policy/gru", idx)
+                # plot_histograms(self.writer, self.actor.gru1, "policy/gru", idx)
+                # plot_histograms(self.writer, self.actor.hidden2nn, "policy/h2nn", idx)
                 # plot_histograms(self.writer, self.actor.linear1, "policy/l1", idx)
-                plot_histograms(self.writer, self.actor.linear2, "policy/l2", idx)
+                # plot_histograms(self.writer, self.actor.linear2, "policy/l2", idx)
 
-                plot_histograms(self.writer, self.critic.gru2, "value/gru", idx)
+                # plot_histograms(self.writer, self.critic.gru1, "value/gru", idx)
+                # plot_histograms(self.writer, self.critic.hidden2nn, "value/h2nn", idx)
                 # plot_histograms(self.writer, self.critic.linear1, "value/l1", idx)
-                plot_histograms(self.writer, self.critic.linear2, "value/l2", idx)         
+                # plot_histograms(self.writer, self.critic.linear2, "value/l2", idx)         
 
                 idx += 1
 

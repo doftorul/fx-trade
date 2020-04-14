@@ -5,11 +5,11 @@ import datetime
 import os
 import argparse
 from tqdm import tqdm
-
+import pandas as pd
 import logging
 logger = logging.getLogger(__name__)
 
-# api = API(access_token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
+# api = Downloader(token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
 
 SAVEPATH="candles"
 
@@ -120,3 +120,60 @@ class Downloader(object):
             return list_candles, namefile
 
         return list_candles
+
+    def multi_assets_builder(self, weeks, instruments, continuous = True, granularity="M1", price="MBA", count=2500, save=False):
+
+        time_intervals = get_time_interval(weeks_ago=weeks)
+
+        if continuous:
+            time_intervals = [(time_intervals[-1][0], time_intervals[0][1])]
+
+        datas = []
+
+        for _from, _to in time_intervals:
+            dfs = []
+
+            from_date = _from.strftime("%Y-%m-%dT%H:%M:%SZ")
+            to_date = _to.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+            params = {
+                "from" : from_date,
+                "to" : to_date,
+                "price" : price,
+                "granularity" : granularity,
+                "count" : count,
+            }
+
+            
+
+            for ins in instruments:
+                candles = []
+                for req in InstrumentsCandlesFactory(instrument=ins, params=params):
+                    single_req = self.api.request(req)
+                    candles += single_req['candles']
+
+                list_candles = []
+                for candle in tqdm(candles):
+                    
+                    list_candles.append(
+                        {
+                            "timestamp" : datetime.datetime.strptime(candle["time"][:19], "%Y-%m-%dT%H:%M:%S"),
+                            "{}.o".format(ins) : float(candle["mid"]["o"]),   # middle open
+                            "{}.c".format(ins) : float(candle["mid"]["c"]),   # middle close
+                            "{}.h".format(ins) : float(candle["mid"]["h"]),   # middle high
+                            "{}.l".format(ins) : float(candle["mid"]["l"]),   # middle low
+                        }
+                    )
+
+                dfs.append(pd.DataFrame(list_candles).set_index("timestamp"))
+
+        
+            df = pd.concat(dfs, axis=1)
+
+            df = df.fillna(method='ffill')
+            df = df.fillna(method='bfill')
+
+            datas.append(df)
+
+        return datas

@@ -16,14 +16,6 @@ Transition = namedtuple('Transition', ['state', 'next_state', 'profit'])
 
 from fxtrade.data.indicators import add_features
 
-
-def scale(x):
-    # PyTorch impl scaler
-    m = x.mean(0, keepdim=True)
-    s = x.std(0, unbiased=False, keepdim=True)
-    x -= m
-    x /= s
-    return x
 class TradingEnvironment():
     def __init__(self, datapath, window=50, steps=10):
 
@@ -47,44 +39,21 @@ class TradingEnvironment():
     
         self.batch_len = len(self.data)
 
-        
-
-        # state = time-series(
-        # [
-        #   mid open, 
-        #   mid close, 
-        #   mid high,
-        #   mid low,
-        #   bid close,
-        #   ask close,
-        #   volume
-        #  ]
-        # Example
-        # [
-        #     "1.12590",
-        #     "1.12598",
-        #     "1.12598",
-        #     "1.12590",
-        #     "1.12606",
-        #     "1.12591",
-        #     10
-        # ],
-
-        self.position = 0
+        self.timestamp = 0
 
 
 
     def step(self, action):
 
-        transation = self.data[self.position]
+        transation = self.data[self.timestamp]
         reward = transation.profit * action
 
         if not reward: reward = -1
 
         next_state = transation.next_state
-        self.position += 1
+        self.timestamp += 1
 
-        if self.position == self.batch_len-1:
+        if self.timestamp == self.batch_len-1:
             done = True
         else:
             done = False
@@ -94,8 +63,8 @@ class TradingEnvironment():
 
     
     def reset(self):
-        self.position = random.randint(0,self.batch_len-self.steps)
-        transation = self.data[self.position]
+        self.timestamp = random.randint(0,self.batch_len-self.steps)
+        transation = self.data[self.timestamp]
         return transation.state
 
 
@@ -132,7 +101,8 @@ class CandlesBatched(Dataset):
                                 c[i:i+window], 
                                 c[i+1:i+window+1], 
                                 # round(pip_conversion*(c[i+1:i+window+1][-1][5]-c[i:i+window][-1][4]),1) bidclose-askclose
-                                round(pip_conversion*(c[i+1:i+window+1][-1][1]-c[i:i+window][-1][1]),1) #midclose - midclose
+                                # round(pip_conversion*(c[i+1:i+window+1][-1][1]-c[i:i+window][-1][1]),1) #midclose - midclose
+                                (c[i+1:i+window+1][-1][1]/c[i:i+window][-1][1]) #midclose - midclose
                             )
                         )
                 

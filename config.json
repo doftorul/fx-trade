@@ -8,10 +8,10 @@
     "dry_run": true,
     "train" : {
         "net" : "A2C",
-        "epochs" : 30,
-        "weeks" : 1,
-        "batch_size" : 32,
-        "num_steps" : 5,
+        "epochs" : 300,
+        "weeks" : 0,
+        "batch_size" : 4,
+        "num_steps" : 8,
         "window" : 50,
         "weights_dir" : "model"
     },
@@ -47,13 +47,42 @@
             "EUR_USD"
         ],
         "pair_blacklist": [
+            "EUR_USD",
             "GBP_USD",
             "AUD_USD",
             "NZD_USD",
             "USD_CAD",
             "USD_JPY",
             "USD_CHF"
-        ]
+        ],
+        "triplets" : {
+
+            "EUR_USD" : [
+                "EUR_GBP",
+                "GBP_USD", 
+                "EUR_USD"
+            ],
+            "EUR_JPY" : [
+                "EUR_CHF",
+                "CHF_JPY",
+                "EUR_JPY"
+            ],
+            "GBP_CHF": [
+                "GBP_AUD",
+                "AUD_CHF",
+                "GBP_CHF"
+            ],
+            "USD_CHF": [
+                "USD_CAD",
+                "CAD_CHF",
+                "USD_CHF"
+            ],
+            "GBP_JPY": [
+                "GBP_NZD",
+                "NZD_JPY",
+                "GBP_JPY"
+            ]
+        }
     },
     "experimental": {
         "use_sell_signal": false,
