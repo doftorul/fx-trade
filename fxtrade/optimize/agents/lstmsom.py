@@ -121,13 +121,7 @@ class SOM(nn.Module):
 
         #retrieve the (x,y) positions on weights map
         bmu_loc = self.locations[bmu_index,:]  # Batch size x 2 (x,y)
-
-
-        dists = self.pdist(torch.stack([x for i in range(self.m*self.n)]), self.weights)
-        _, bmu_index = torch.min(dists, 0)
-        bmu_loc = self.locations[bmu_index,:]
         bmu_loc = bmu_loc.squeeze()
-
 
         som_trend = self.output_layer[bmu_index.squeeze()]
 
