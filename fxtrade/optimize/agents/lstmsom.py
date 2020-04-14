@@ -117,7 +117,7 @@ class SelfOrganizingMap(nn.Module):
         #sums up the three signals along first axis and square root
         dists = torch.sqrt(torch.sum(dists, 1))  #Batch size x 900 (30x30 map)
 
-        values, bmu_index = torch.min(dists, 1) # Batch-size 1-D tensors
+        _, bmu_index = torch.min(dists, 1) # Batch-size 1-D tensors
 
         #retrieve the (x,y) positions on weights map
         bmu_loc = self.locations[bmu_index,:]  # Batch size x 2 (x,y)
