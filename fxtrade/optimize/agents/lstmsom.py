@@ -202,14 +202,14 @@ class DeepLSTM(nn.Module):
 
         h_out = h_out.view(-1, self.hidden_size*self.num_layers)
 
-        # o = self.fc(h_out)
-        o = self.softmax(self.fc(h_out))
+        # o = self.softmax(self.fc(h_out))
+        o = self.fc(h_out)
 
         return o
 
 
 class DeepMotorMap(object):
-    def __init__(self, state_dim=3, action_dim=3, lr=0.3, seq_len=100, beta=0.15, optimiser="Adam"):
+    def __init__(self, state_dim=3, action_dim=3, lr=10, seq_len=100, beta=0.15, optimiser="SGD"):
 
         self.lstm = DeepLSTM(
             num_features=state_dim, 
@@ -225,8 +225,8 @@ class DeepMotorMap(object):
 
         optimiser_ = getattr(optim, optimiser)
         self.optimizer = optimiser_(self.lstm.parameters(), lr=lr)
-        #self.criterion = nn.CrossEntropyLoss()
-        self.criterion = nn.NLLLoss()
+        self.criterion = nn.CrossEntropyLoss()
+        #self.criterion = nn.NLLLoss()
 
 
         self.writer = SummaryWriter()
@@ -301,9 +301,9 @@ class DeepMotorMap(object):
 
                     self.writer.add_images("rl/motormap", self.motormap.output_layer.data.view(30,30)*127, idx, dataformats="HW")
 
-                    print(real_trends.detach().cpu().numpy())
-                    print(lstm_trends_argmax.detach().cpu().numpy())
-                    print(lstm_trends.detach().cpu().numpy())
+                    # print(real_trends.detach().cpu().numpy())
+                    # print(lstm_trends_argmax.detach().cpu().numpy())
+                    # print(lstm_trends.detach().cpu().numpy())
 
                     self.writer.add_histogram("train/actions", lstm_trends_argmax.detach().cpu().numpy(), idx)
                     self.writer.add_histogram("train/probs", lstm_trends.detach().cpu().numpy(), idx)

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 Transition = namedtuple('Transition', ['state', 'next_state', 'profit'])
 
 #from fxtrade.data.indicators import add_features, compute_trend, normalize
-from fxtrade.data.indicators import add_features, compute_trend
+from fxtrade.data.indicators import add_features, compute_trend, norm_by_latest_close_triplet
 from sklearn.preprocessing import normalize
 class TradingEnvironment():
     def __init__(self, datapath, window=50, steps=10):
@@ -214,13 +214,13 @@ class TriangularArbitrage(Dataset):
 
         len_data = len(prices)
 
-        prices_normalized = normalize(prices).tolist()#, x_min=x_min, x_max=x_max)
+        # prices_normalized = normalize(prices).tolist()#, x_min=x_min, x_max=x_max)
 
         for i in range(0, len_data-window-next_steps, skip):
             self.samples.append(
                 (
-                    prices_normalized[i:i+window], 
-                    #prices[i:i+window], 
+                    #norm_by_latest_close_triplet(prices[i:i+window]), 
+                    prices[i:i+window], 
                     *compute_trend([p[2] for p in prices[i+window:i+window+next_steps]])#midclose - midclose
                     # prices[i+skip:i+window+skip], 
                 )
