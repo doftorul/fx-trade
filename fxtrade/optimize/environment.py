@@ -9,13 +9,16 @@ import pandas as pd
 from tqdm import tqdm
 import os
 
+from fxtrade.optimize.agents.lstmsom import idx2signal
+
 import logging
 logger = logging.getLogger(__name__)
 
 Transition = namedtuple('Transition', ['state', 'next_state', 'profit'])
 
-from fxtrade.data.indicators import add_features
-
+#from fxtrade.data.indicators import add_features, compute_trend, normalize
+from fxtrade.data.indicators import add_features, compute_trend
+from sklearn.preprocessing import normalize
 class TradingEnvironment():
     def __init__(self, datapath, window=50, steps=10):
 
@@ -187,5 +190,54 @@ class CandlesBatched(Dataset):
 
 
 
+SAVED_ARBITRAGE_DEFAULT_PATH = "fxtrade/data/arbitrage/{}.pkl"
 
-# dataloader = DataLoader(dataset, batch_size=16, shuffle=True,
+# dataloader = DataLoader(dataset, batch_size=16, shuffle=True
+
+class TriangularArbitrage(Dataset):
+    def __init__(self, data, triplet="EUR_GBP_USD", window=100, next_steps=60, skip=20, instrument=None, load=False, save=True):
+
+        self.signal2idx = {v:k for k,v in idx2signal.items()}
+        
+        currencies = triplet.split("_")
+
+
+        self.samples = []
+
+
+        prices = data["prices"]
+        x_min = data["min"]
+        x_max = data["max"]
+            
+
+        logger.info("Creating batches for {}".format(triplet))
+
+        len_data = len(prices)
+
+        prices_normalized = normalize(prices).tolist()#, x_min=x_min, x_max=x_max)
+
+        for i in range(0, len_data-window-next_steps, skip):
+            self.samples.append(
+                (
+                    prices_normalized[i:i+window], 
+                    #prices[i:i+window], 
+                    *compute_trend([p[2] for p in prices[i+window:i+window+next_steps]])#midclose - midclose
+                    # prices[i+skip:i+window+skip], 
+                )
+            )
+
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        state = torch.FloatTensor(self.samples[idx][0])
+        # print(state_stack.shape)
+        trend =  self.signal2idx[self.samples[idx][1]]
+        reward = self.samples[idx][2]
+
+        return {
+            "state" : state,
+            "trend" : trend,
+            "reward" : reward,
+        }

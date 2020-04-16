@@ -82,6 +82,16 @@ def save(xs, ys, names, candles):
 
     plotly.offline.plot(fig, filename = 'filename.html', auto_open=False)
 
+def plotsave(s, t, t2, f, f2):
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(x=[i for i in range(len(s))], y=s, mode="lines"))
+    fig.add_trace(go.Scatter(x=[i+(len(s)-1) for i in range(len(t))], y=t, mode="lines"))
+    fig.add_trace(go.Scatter(x=[i+(len(s)-1) for i in range(len(t))], y=f, mode="lines"))
+    fig.add_trace(go.Scatter(x=[i+(len(s)-1)+50 for i in range(len(t))], y=t2, mode="lines"))
+    fig.add_trace(go.Scatter(x=[i+(len(s)-1)+50 for i in range(len(t))], y=f2, mode="lines"))
+    plotly.offline.plot(fig, filename = 'filename.html', auto_open=False)
+
 
 save(xs, ys, names, timeseries)
 

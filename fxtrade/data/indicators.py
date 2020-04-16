@@ -1,18 +1,41 @@
 import pandas as pd
 import numpy as np
+import numpy.polynomial.polynomial as poly
 
-from sklearn.preprocessing import normalize
+def normalize(X, x_min=None, x_max=None, ran=(0,1)):
 
-def norm(l):
-    x = np.array(l)
-    x = normalize(x[:,np.newaxis], axis=0).ravel()
-    return x.tolist()
+    if not x_min : x_min = X.min()
+    if not x_max : x_max = X.max()
+
+    nom = X - x_min
+    denom = x_max - x_min
+
+    return nom/denom 
 
 
 def norm_by_latest_close(l, c):
     x = np.array(l)
     x /= c
     return x.tolist()
+
+def compute_trend(target_data, threshold = 0.03, pip_conversion=10000):
+
+    x = np.arange(0,len(target_data))
+    coefs = poly.polyfit(x, target_data, 1)
+    ffit = poly.polyval(x, coefs)
+
+    reward_pips = (ffit[-1]/ffit[0]-1)*pip_conversion
+    slope = (ffit[-1]/ffit[0]-1)*100
+
+    if slope > threshold:
+        trend = 'buy'
+    elif slope < -threshold:
+        trend = 'sell'
+    else:
+        trend = 'hold'
+        reward_pips = 0
+
+    return trend, reward_pips
 
 
 def add_features(timeseries, scale=False):

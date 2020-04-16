@@ -7,13 +7,14 @@
     "ticker_interval" : "5m", 
     "dry_run": true,
     "train" : {
-        "net" : "A2C",
+        "net" : "DeepMotorMap",
         "epochs" : 300,
-        "weeks" : 0,
-        "batch_size" : 4,
-        "num_steps" : 8,
-        "window" : 50,
-        "weights_dir" : "model"
+        "weeks" : 52,
+        "batch_size" : 64,
+        "num_steps" : 60,
+        "window" : 100,
+        "weights_dir" : "model/DeepMotorMap",
+        "triplet" : "EUR_GBP_USD"
     },
     "strategy": {
         "name": "AdvantageActorCritic",
@@ -55,34 +56,13 @@
             "USD_JPY",
             "USD_CHF"
         ],
-        "triplets" : {
-
-            "EUR_USD" : [
-                "EUR_GBP",
-                "GBP_USD", 
-                "EUR_USD"
-            ],
-            "EUR_JPY" : [
-                "EUR_CHF",
-                "CHF_JPY",
-                "EUR_JPY"
-            ],
-            "GBP_CHF": [
-                "GBP_AUD",
-                "AUD_CHF",
-                "GBP_CHF"
-            ],
-            "USD_CHF": [
-                "USD_CAD",
-                "CAD_CHF",
-                "USD_CHF"
-            ],
-            "GBP_JPY": [
-                "GBP_NZD",
-                "NZD_JPY",
-                "GBP_JPY"
-            ]
-        }
+        "triplets" : [
+            "EUR_GBP_USD",
+            "EUR_CHF_JPY",
+            "GBP_AUD_CHF",
+            "USD_CAD_CHF",
+            "GBP_NZD_JPY"
+        ]
     },
     "experimental": {
         "use_sell_signal": false,

@@ -2,20 +2,28 @@ import torch
 import torch.nn as nn
 from fxtrade.optimize.agents.a2c_batched import A2C
 from fxtrade.optimize.agents.deepq import DQN
-from fxtrade.optimize.agents.lstmppo import PPO
-from fxtrade.optimize.environment import CandlesBatched, TradingEnvironment
+from fxtrade.optimize.agents.lstmsom import DeepMotorMap
+from fxtrade.optimize.environment import (
+    CandlesBatched, 
+    TradingEnvironment, 
+    TriangularArbitrage,
+    SAVED_ARBITRAGE_DEFAULT_PATH,
+    SAVED_CANDLES_DEFAULT_PATH
+)
+
+import pickle
 from fxtrade.data.factory import Downloader, get_time_interval
 from torch.utils.data import DataLoader
 import json
 import logging
-
+import pandas as pd
 logger = logging.getLogger('fxtrade')
 
 
 NEURAL_NET_DICTIONARY = {
     "A2C": A2C,
     "DQN": DQN,
-    "PPO": PPO
+    "DeepMotorMap": DeepMotorMap
     }
 
 
@@ -30,43 +38,81 @@ class Trainer(object):
         self.downloader = Downloader(config["exchange"]["token"], config["exchange"]["environment"])
         self.weeks_training = config["train"]["weeks"]
         self.instruments = config["exchange"]["pair_whitelist"]
+        self.arbitrage = arbitrage
+        if self.arbitrage: self.triplet = config["train"]["triplet"]
 
     def run(self, load=False):
 
-        if not load:
-            days_from_to = get_time_interval(self.weeks_training)
+        if self.arbitrage:
 
-            candles = []
-            instruments = []
+            currencies = self.triplet.split("_")
 
-            for (_from,_to) in days_from_to:
-                for i in self.instruments:
-                    c = self.downloader(
-                        instrument = i,
-                        _from = _from,
-                        _to = _to
+            instruments = [
+                "{}_{}".format(currencies[0], currencies[1]),
+                "{}_{}".format(currencies[1], currencies[2]),
+                "{}_{}".format(currencies[0], currencies[2])  #traded currency
+            ]
+
+            if not load:
+                candles = self.downloader.multi_assets_builder(
+                    self.weeks_training, 
+                    instruments=instruments, 
+                    granularity="M1", 
+                    price="M"
                     )
-                    candles.append(c)
-                    instruments.append(i)
-            
-            dataset = CandlesBatched(
-                datapath=candles, 
-                window=self.window,
-                steps=self.num_steps,
-                instrument=instruments
+
+                with open(SAVED_ARBITRAGE_DEFAULT_PATH.format(self.triplet), "wb") as w_file:
+                    pickle.dump(candles, w_file)
+                
+            else:
+
+                with open(SAVED_ARBITRAGE_DEFAULT_PATH.format(self.triplet), "rb") as load_file:
+                    candles = pickle.load(load_file)
+
+            dataset = TriangularArbitrage(
+                    data=candles, 
+                    triplet=self.triplet,
+                    window=self.window,
+                    next_steps=self.num_steps,
+                    instrument=instruments
                 )
 
         else:
-            candles = json.load(open(load, "r"))
-            instruments = []
+            if not load:
+                days_from_to = get_time_interval(self.weeks_training)
 
-            dataset = CandlesBatched(
-                datapath=candles, 
-                window=self.window,
-                steps=self.num_steps,
-                instrument=instruments
+                candles = []
+                instruments = []
+
+                for (_from,_to) in days_from_to:
+                    for i in self.instruments:
+                        c = self.downloader(
+                            instrument = i,
+                            _from = _from,
+                            _to = _to
+                        )
+                        candles.append(c)
+                        instruments.append(i)
+                
+                dataset = CandlesBatched(
+                    datapath=candles, 
+                    window=self.window,
+                    steps=self.num_steps,
+                    instrument=instruments
+                    )
+
+            else:
+                candles = json.load(open(load, "r"))
+                instruments = []
+
+                dataset = CandlesBatched(
+                    datapath=candles, 
+                    window=self.window,
+                    steps=self.num_steps,
+                    instrument=instruments
                 )
             
+
         dataloader = DataLoader(
             dataset=dataset, 
             batch_size=self.batch_size,

@@ -154,6 +154,7 @@ rl-finance-lessons
 rl-finance-pdfs
 
 fxtrade/data/candles
+fxtrade/data/arbitrage
 tensorboard
 runs
 model

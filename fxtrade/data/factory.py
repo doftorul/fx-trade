@@ -7,6 +7,7 @@ import argparse
 from tqdm import tqdm
 import pandas as pd
 import logging
+import numpy as np
 logger = logging.getLogger(__name__)
 
 # api = Downloader(token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
@@ -155,19 +156,26 @@ class Downloader(object):
 
                 list_candles = []
                 for candle in tqdm(candles):
+
+                    if granularity == "D":
+                        timestamp = datetime.datetime.strptime(candle["time"][:10], "%Y-%m-%d")
+                    else:
+                        timestamp = datetime.datetime.strptime(candle["time"][:19], "%Y-%m-%dT%H:%M:%S")
                     
                     list_candles.append(
                         {
-                            "timestamp" : datetime.datetime.strptime(candle["time"][:19], "%Y-%m-%dT%H:%M:%S"),
-                            "{}.o".format(ins) : float(candle["mid"]["o"]),   # middle open
-                            "{}.c".format(ins) : float(candle["mid"]["c"]),   # middle close
-                            "{}.h".format(ins) : float(candle["mid"]["h"]),   # middle high
-                            "{}.l".format(ins) : float(candle["mid"]["l"]),   # middle low
+                            "timestamp" : timestamp,
+                            #"{}.o".format(ins) : float(candle["mid"]["o"]),   # middle open
+                            "{}".format(ins) : float(candle["mid"]["c"]),   # middle close
+                            #"{}.h".format(ins) : float(candle["mid"]["h"]),   # middle high
+                            #"{}.l".format(ins) : float(candle["mid"]["l"]),   # middle low
                         }
                     )
 
-                dfs.append(pd.DataFrame(list_candles).set_index("timestamp"))
+                to_append = pd.DataFrame(list_candles).set_index("timestamp")
+                to_append = to_append.loc[~to_append.index.duplicated(keep='first')]
 
+                dfs.append(to_append)#.drop_duplicates(subset='timestamp', keep='last'))
         
             df = pd.concat(dfs, axis=1)
 
@@ -176,4 +184,21 @@ class Downloader(object):
 
             datas.append(df)
 
-        return datas
+        if continuous:
+
+            data_list = [
+                list(d) for d in zip(*[df[x].tolist() for x in instruments])
+                ]                                                                                                                                                                                
+            
+            data_output = {
+                "prices" : data_list,
+                "min" : np.array(data_list).min(),
+                "max" : np.array(data_list).max()
+            }
+            
+            
+
+            return data_output
+
+        else:
+            return datas  #this is a dataframe so watch the dog out
