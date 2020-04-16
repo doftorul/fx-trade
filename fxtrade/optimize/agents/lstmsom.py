@@ -157,7 +157,7 @@ class SelfOrganizingMap(nn.Module):
             neighbourhood_func = torch.exp(torch.neg(torch.div(bmu_distance_squares, sigma_op**2)))
 
                         
-            learning_rate = self.beta * neighbourhood_func
+            learning_rate = self.beta * neighbourhood_func.to(device)
 
             learning_rate_multiplier = torch.stack([learning_rate[i:i+1].repeat(self.dim) for i in range(self.m*self.n)])
             
@@ -179,40 +179,31 @@ class DeepLSTM(nn.Module):
         super(DeepLSTM, self).__init__()
 
         self.hidden_size = hidden_size
+        self.num_layers = num_layers
 
         self.lstm = nn.GRU(
             input_size = num_features,
             hidden_size = hidden_size,
             num_layers=num_layers,
             batch_first=True,
-            bias=False)
+            bias=False,
+            # dropout=0.5
+            )
 
         #self.reduce = nn.Linear(num_layers, 1)
 
-        self.fc = nn.Linear(hidden_size, num_actions, bias=False)
+        self.fc = nn.Linear(hidden_size*num_layers, num_actions, bias=False)
 
         self.softmax = nn.Softmax()
     
     def forward(self, x):
-
-        # print(x)
-        # print(x.shape)
-        # 1/0
-        # print(x.shape)
-        gru_out, h_out = self.lstm(x)
+        _, h_out = self.lstm(x)
 
 
-        h_out = h_out.view(-1, self.hidden_size)
+        h_out = h_out.view(-1, self.hidden_size*self.num_layers)
 
-        #h = h.permute(1,2,0)
-        # h =  batch x hidden size x num_layers
-        # h = self.reduce(h)
-        #h = h[:,:,-1] #last layer hidden state
-
-
-        #h = h.squeeze(-1)
-        #h = self.softmax(self.fc(x))
-        o = self.fc(h_out)
+        # o = self.fc(h_out)
+        o = self.softmax(self.fc(h_out))
 
         return o
 
@@ -224,7 +215,7 @@ class DeepMotorMap(object):
             num_features=state_dim, 
             num_actions=action_dim,
             hidden_size=300,
-            num_layers=1
+            num_layers=2
             )
         self.motormap = SelfOrganizingMap(m=30, n=30, dim=seq_len, beta=beta)
 
@@ -234,7 +225,8 @@ class DeepMotorMap(object):
 
         optimiser_ = getattr(optim, optimiser)
         self.optimizer = optimiser_(self.lstm.parameters(), lr=lr)
-        self.criterion = nn.CrossEntropyLoss()
+        #self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.NLLLoss()
 
 
         self.writer = SummaryWriter()
@@ -266,9 +258,9 @@ class DeepMotorMap(object):
                     self.optimizer.zero_grad()
 
 
-                    signals = Variable(batch["state"].to(device))
+                    signals = batch["state"].to(device)
 
-                    real_trends = Variable(batch["trend"].to(device).long())
+                    real_trends = batch["trend"].to(device).long()
 
                     profits = torch.abs(batch["reward"])
                     overall_profit = torch.sum(profits)
@@ -309,13 +301,13 @@ class DeepMotorMap(object):
 
                     self.writer.add_images("rl/motormap", self.motormap.output_layer.data.view(30,30)*127, idx, dataformats="HW")
 
-                    print(real_trends.detach().numpy())
-                    print(lstm_trends_argmax.detach().numpy())
-                    print(lstm_trends.detach().numpy())
+                    print(real_trends.detach().cpu().numpy())
+                    print(lstm_trends_argmax.detach().cpu().numpy())
+                    print(lstm_trends.detach().cpu().numpy())
 
-                    self.writer.add_histogram("train/actions", lstm_trends_argmax.detach().numpy(), idx)
-                    self.writer.add_histogram("train/probs", lstm_trends.detach().numpy(), idx)
-                    self.writer.add_histogram("train/real_trends", real_trends.detach().numpy(), idx)
+                    self.writer.add_histogram("train/actions", lstm_trends_argmax.detach().cpu().numpy(), idx)
+                    self.writer.add_histogram("train/probs", lstm_trends.detach().cpu().numpy(), idx)
+                    self.writer.add_histogram("train/real_trends", real_trends.detach().cpu().numpy(), idx)
 
 
 

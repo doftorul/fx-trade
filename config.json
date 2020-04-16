@@ -10,8 +10,8 @@
         "net" : "DeepMotorMap",
         "epochs" : 300,
         "weeks" : 52,
-        "batch_size" : 64,
-        "num_steps" : 60,
+        "batch_size" : 1,
+        "num_steps" : 100,
         "window" : 100,
         "weights_dir" : "model/DeepMotorMap",
         "triplet" : "EUR_GBP_USD"
