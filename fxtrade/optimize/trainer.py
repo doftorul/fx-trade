@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
-from fxtrade.optimize.agents.a2c_batched import A2C
-from fxtrade.optimize.agents.deepq import DQN
-from fxtrade.optimize.agents.lstmsom import DeepMotorMap
+from fxtrade.optimize.agents import A2C, DQN, DeepMotorMap
 from fxtrade.optimize.environment import (
     CandlesBatched, 
     TradingEnvironment, 
     TriangularArbitrage,
+    GramianFieldDataset,
     SAVED_ARBITRAGE_DEFAULT_PATH,
     SAVED_CANDLES_DEFAULT_PATH
 )
@@ -17,6 +16,7 @@ from torch.utils.data import DataLoader
 import json
 import logging
 import pandas as pd
+import os
 logger = logging.getLogger('fxtrade')
 
 
@@ -28,22 +28,23 @@ NEURAL_NET_DICTIONARY = {
 
 
 class Trainer(object):
-    def __init__(self, config, arbitrage=False):
-        self.net = NEURAL_NET_DICTIONARY[config["train"]["net"]]()
+    def __init__(self, config):
+        self.net = NEURAL_NET_DICTIONARY[config["train"]["net"]](**config["train"].get("net_params", {}))
         self.epochs = config["train"]["epochs"]
         self.batch_size = config["train"]["batch_size"]
         self.num_steps= config["train"]["num_steps"]
+        self.iters= config["train"]["iters"]
         self.window = config["train"]["window"]
         self.model_dir = config["train"]["weights_dir"]
         self.downloader = Downloader(config["exchange"]["token"], config["exchange"]["environment"])
         self.weeks_training = config["train"]["weeks"]
         self.instruments = config["exchange"]["pair_whitelist"]
-        self.arbitrage = arbitrage
-        if self.arbitrage: self.triplet = config["train"]["triplet"]
+        self.dataset = config["train"]["dataset"]
+        self.triplet = config["train"].get("triplet","")
 
-    def run(self, load=False):
+    def run(self, load=True):
 
-        if self.arbitrage:
+        if self.dataset == "arbitrage":
 
             currencies = self.triplet.split("_")
 
@@ -77,8 +78,8 @@ class Trainer(object):
                     instrument=instruments
                 )
 
-        else:
-            if not load:
+        elif self.dataset == "candles":
+            if not load or not os.path.exists(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments))):
                 days_from_to = get_time_interval(self.weeks_training)
 
                 candles = []
@@ -97,21 +98,81 @@ class Trainer(object):
                 dataset = CandlesBatched(
                     datapath=candles, 
                     window=self.window,
-                    steps=self.num_steps,
+                    steps=self.iters,
                     instrument=instruments
                     )
 
+                datacandles = {
+
+                    "candles" : candles,
+                    "instrument" :instruments
+                }
+
+                with open(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments)), "wb") as w_file:
+                    pickle.dump(datacandles, w_file)
+
             else:
-                candles = json.load(open(load, "r"))
-                instruments = []
+                with open(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments)), "rb") as load_file:
+                    datacandles = pickle.load(load_file)
+
+                candles = datacandles["candles"]
+                instruments = datacandles["instrument"]
 
                 dataset = CandlesBatched(
                     datapath=candles, 
                     window=self.window,
-                    steps=self.num_steps,
+                    steps=self.iters,
                     instrument=instruments
                 )
-            
+                
+        elif self.dataset == "gramian":
+            if not load or not os.path.exists(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments))):
+                days_from_to = get_time_interval(self.weeks_training)
+
+                candles = []
+                instruments = []
+
+                for i in self.instruments:    
+                    for (_from,_to) in days_from_to:     
+                        c = self.downloader(
+                            instrument = i,
+                            _from = _from,
+                            _to = _to
+                        )
+                        candles.append(c)
+                        instruments.append(i)
+                
+                dataset = GramianFieldDataset(
+                    data=candles, 
+                    window=self.window,
+                    next_steps=self.num_steps,
+                    instrument=instruments
+                    )
+
+                datacandles = {
+
+                    "candles" : candles,
+                    "instrument" :instruments
+                }
+
+                with open(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments)), "wb") as w_file:
+                    pickle.dump(datacandles, w_file)
+                
+            else:
+
+                with open(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments)), "rb") as load_file:
+                    datacandles = pickle.load(load_file)
+
+                candles = datacandles["candles"]
+                instruments = datacandles["instrument"]
+
+
+                dataset = GramianFieldDataset(
+                    data=candles, 
+                    window=self.window,
+                    next_steps=self.num_steps,
+                    instrument=instruments
+                )
 
         dataloader = DataLoader(
             dataset=dataset, 
@@ -123,7 +184,7 @@ class Trainer(object):
         self.net.train(
             dataloader=dataloader, 
             epochs=self.epochs, 
-            num_steps=self.num_steps, 
+            num_steps=self.iters, 
             window=self.window,
             save_dir=self.model_dir
             )

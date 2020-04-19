@@ -15,6 +15,7 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 from fxtrade.optimize.agents.utils import weight_init
+
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
@@ -207,24 +208,64 @@ class DeepLSTM(nn.Module):
 
         return o
 
+class PolicyNetworkCNN(nn.Module):
+    def __init__(self, num_actions, hidden_size=64, gru_layers=4):
+        super(PolicyNetworkCNN, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=4, kernel_size=(3,3), stride=2)
+        self.conv2 = nn.Conv2d(in_channels=4, out_channels=8, kernel_size=(2,2), stride=2)
+
+        self.bn1 = nn.BatchNorm2d(4)
+        self.bn2 = nn.BatchNorm2d(8)
+        self.bn3 = nn.BatchNorm2d(16)
+
+        self.pool = nn.MaxPool2d(kernel_size=2)
+
+        self.fc1 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=(2,2))
+        self.fc2 = nn.Conv2d(in_channels=16, out_channels=num_actions, kernel_size=(5,5))
+
+        self.activation = nn.ReLU()
+        # self.activation = nn.Tanh()
+
+    def forward(self, state):
+
+        x = self.activation(self.pool(self.bn1(self.conv1(state))))
+        x = self.activation(self.pool(self.bn2(self.conv2(x))))
+        x = self.activation(self.bn3(self.fc1(x)))
+        x = self.fc2(x)
+        x = x.squeeze(2).squeeze(2)
+
+        return x
 
 class DeepMotorMap(object):
-    def __init__(self, state_dim=3, action_dim=3, lr=10, seq_len=100, beta=0.15, optimiser="SGD"):
+    def __init__(self, state_dim=3, action_dim=3, policy_lr=0.0001, 
+    seq_len=100, beta=0.15, optimiser="SGD", conv=True, som=True):
 
-        self.lstm = DeepLSTM(
-            num_features=state_dim, 
-            num_actions=action_dim,
-            hidden_size=300,
-            num_layers=2
-            )
-        self.motormap = SelfOrganizingMap(m=30, n=30, dim=seq_len, beta=beta)
+        if not conv:
+            self.classifier = DeepLSTM(
+                num_features=state_dim, 
+                num_actions=action_dim,
+                hidden_size=300,
+                num_layers=2
+                )
+
+            self.classifier_input = "signals"
+
+        else:
+            self.classifier = PolicyNetworkCNN(action_dim)
+            self.classifier_input = "state"
+
+        if som:
+            self.motormap = SelfOrganizingMap(m=30, n=30, dim=seq_len, beta=beta)
+            self.motormap.to(device)
+        else:
+            self.motormap = None
 
         # self.lstm.apply(weight_init)
-        self.lstm.to(device)
-        self.motormap.to(device)
+        self.classifier.to(device)
 
         optimiser_ = getattr(optim, optimiser)
-        self.optimizer = optimiser_(self.lstm.parameters(), lr=lr)
+        self.optimizer = optimiser_(self.classifier.parameters(), lr=policy_lr)
         self.criterion = nn.CrossEntropyLoss()
         #self.criterion = nn.NLLLoss()
 
@@ -240,17 +281,13 @@ class DeepMotorMap(object):
 
     def train(self, dataloader, epochs= 5, window=100, num_steps=None, save_dir=""):
 
-        self.lstm.train()
+        self.classifier.train()
 
         idx = 0
-
-        losses = []
-        penalties = []
 
         try:
             for epoch in range(epochs):
                 
-                mean_loss = 0.
                 penalty = 0.
 
                 for batch in tqdm(dataloader):
@@ -258,48 +295,56 @@ class DeepMotorMap(object):
                     self.optimizer.zero_grad()
 
 
-                    signals = batch["state"].to(device)
+                    
+                    
+                    state = batch[self.classifier_input].to(device)
 
                     real_trends = batch["trend"].to(device).long()
 
-                    profits = torch.abs(batch["reward"])
+                    profits = torch.abs(batch["profit"])
+
                     overall_profit = torch.sum(profits)
 
-                    lstm_trends = self.lstm(signals)
-
+                    lstm_trends = self.classifier(state)
                     lstm_trends_argmax = torch.argmax(lstm_trends, dim=1)
 
                     lstm_trends_argmax_signs = torch.tensor([idx2sign[l.item()] for l in lstm_trends_argmax])
 
-                    lstm_profit = lstm_trends_argmax_signs*batch["reward"]
+                    lstm_profit = lstm_trends_argmax_signs*batch["profit"].squeeze()
+                    
                     lstm_profit = torch.sum(lstm_profit)
 
                     # for x in self.lstm.parameters():
                     #     print(x.grad)
-                    loss = self.criterion(lstm_trends, real_trends)
+                    loss = self.criterion(lstm_trends,real_trends)
                     loss.backward()
                     # for x in self.lstm.parameters():
                     #     print(x.grad)
                     self.optimizer.step()
 
-                    batch_size = signals.shape[0]
-                    for j in range(batch_size):
-
-                        penalty += self.motormap(
-                            x=signals[j],
-                            lstm_trend=lstm_trends_argmax.detach()[j],
-                            real_trend=real_trends[j]
-                        )
-
+                    
+                    
                     self.writer.add_scalar("losses/loss", loss.data, idx)
-                    self.writer.add_scalar("rl/penalty", penalty, idx)
-
                     self.writer.add_scalars("profit/", {
                         "lstm" : lstm_profit.item(),
                         "real" : overall_profit.item()
                     }, idx)
 
-                    self.writer.add_images("rl/motormap", self.motormap.output_layer.data.view(30,30)*127, idx, dataformats="HW")
+                    if self.motormap is not None:
+                        signals = batch["signals"].to(device)
+                        batch_size = signals.shape[0]
+                        for j in range(batch_size):
+
+                            penalty += self.motormap(
+                                x=signals[j],
+                                lstm_trend=lstm_trends_argmax.detach()[j],
+                                real_trend=real_trends[j]
+                            )
+
+                        self.writer.add_scalar("rl/penalty", penalty, idx)
+
+
+                        self.writer.add_images("rl/motormap", self.motormap.output_layer.data.view(30,30)*127, idx, dataformats="HW")
 
                     # print(real_trends.detach().cpu().numpy())
                     # print(lstm_trends_argmax.detach().cpu().numpy())
@@ -313,30 +358,28 @@ class DeepMotorMap(object):
 
 
                     idx += 1
-                
-                
-                losses.append(mean_loss)
-                penalties.append(penalty)
             
             
             self.ensure(save_dir)
+            if self.motormap is not None:
+                torch.save(
+                    self.motormap.state_dict(),
+                    '{}/motormap.pth'.format(save_dir)
+                )
             torch.save(
-                self.motormap.state_dict(),
-                '{}/motormap.pth'.format(save_dir)
-            )
-            torch.save(
-                self.lstm.state_dict(),
-                '{}/lstm.pth'.format(save_dir)
+                self.classifier.state_dict(),
+                '{}/classifier.pth'.format(save_dir)
             )
             
         except:
             traceback.print_exc()
             self.ensure(save_dir)
+            if self.motormap is not None:
+                torch.save(
+                    self.motormap.state_dict(),
+                    '{}/motormap.pth'.format(save_dir)
+                )
             torch.save(
-                self.motormap.state_dict(),
-                '{}/motormap.pth'.format(save_dir)
-            )
-            torch.save(
-                self.lstm.state_dict(),
-                '{}/lstm.pth'.format(save_dir)
+                self.classifier.state_dict(),
+                '{}/classifier.pth'.format(save_dir)
             )

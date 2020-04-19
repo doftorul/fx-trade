@@ -9,12 +9,20 @@
     "train" : {
         "net" : "DeepMotorMap",
         "epochs" : 300,
-        "weeks" : 52,
-        "batch_size" : 1,
+        "weeks" : 40,
+        "batch_size" : 16,
         "window" : 100,
-        "num_steps" : 30,
+        "num_steps" : 50,
+        "iters" : 1,
         "weights_dir" : "model/DeepMotorMap",
-        "triplet" : "EUR_GBP_USD"
+        "triplet" : "EUR_GBP_USD",
+        "dataset" : "gramian",
+        "net_params" : {
+            "conv" : true,
+            "optimiser" : "Adam",
+            "policy_lr" : 1e-3,
+            "som" : false
+        }
     },
     "strategy": {
         "name": "AdvantageActorCritic",

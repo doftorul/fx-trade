@@ -8,7 +8,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 import os
-
+from pyts.image import GramianAngularField
 from fxtrade.optimize.agents.lstmsom import idx2signal
 
 import logging
@@ -71,7 +71,7 @@ class TradingEnvironment():
         return transation.state
 
 
-SAVED_CANDLES_DEFAULT_PATH = "fxtrade/data/candles/last_candles.json"
+SAVED_CANDLES_DEFAULT_PATH = "fxtrade/data/candles/{}.pkl"
 
 class CandlesBatched(Dataset):
     def __init__(self, datapath, window=50, steps=5, instrument=None, load=False, save=False):
@@ -239,5 +239,61 @@ class TriangularArbitrage(Dataset):
         return {
             "state" : state,
             "trend" : trend,
-            "reward" : reward,
+            "profit" : reward,
+        }
+
+
+
+class GramianFieldDataset(Dataset):
+    def __init__(self, data, window=100, next_steps=60, skip=20, instrument=None, load=False, save=True):
+
+        self.signal2idx = {v:k for k,v in idx2signal.items()}
+
+        self.samples = []
+        self.signals = []
+
+        self.gasf_dict = {
+            ins : GramianAngularField(image_size=window, method='summation') for ins in instrument
+        }
+
+
+        for ins, c in zip(instrument, data):
+            prices = [p[1] for p in c]
+
+            # x_min = data["min"]
+            # x_max = data["max"]
+                
+            self.gasf_dict[ins].fit(np.array(prices))
+
+            len_data = len(prices)
+
+            # prices_normalized = normalize(prices).tolist()#, x_min=x_min, x_max=x_max)
+
+            for i in range(0, len_data-window-next_steps, skip):
+                self.samples.append(
+                    (
+                        #norm_by_latest_close_triplet(prices[i:i+window]), 
+                        self.gasf_dict[ins].transform(np.array([prices[i:i+window]])), 
+                        self.gasf_dict[ins].transform(np.array([prices[i+skip:i+window+skip]])), 
+                        *compute_trend([p for p in prices[i+window:i+window+next_steps]])#midclose - midclose
+                        # prices[i+skip:i+window+skip], 
+                    )
+                )
+
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        state = torch.FloatTensor(self.samples[idx][0])
+        next_state = torch.FloatTensor(self.samples[idx][1])
+        # print(state_stack.shape)
+        trend =  self.signal2idx[self.samples[idx][2]]
+        reward = torch.FloatTensor([self.samples[idx][3]])
+
+        return {
+            "state" : state,
+            "next_state" : next_state,
+            "trend" : trend,
+            "profit" : reward,
         }
