@@ -258,7 +258,7 @@ class GramianFieldDataset(Dataset):
 
 
         for ins, c in zip(instrument, data):
-            prices = [p[1] for p in c]
+            prices = [p[1] for p in c]  #close price
 
             # x_min = data["min"]
             # x_max = data["max"]

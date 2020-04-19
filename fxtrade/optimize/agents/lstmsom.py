@@ -355,8 +355,6 @@ class DeepMotorMap(object):
                     self.writer.add_histogram("train/real_trends", real_trends.detach().cpu().numpy(), idx)
 
 
-
-
                     idx += 1
             
             

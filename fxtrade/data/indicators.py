@@ -37,7 +37,7 @@ def compute_trend(target_data, threshold = 0.03, pip_conversion=10000):
 
     return trend, reward_pips
 
-def smooth(scalars: List[float], weight: float) -> List[float]:  # Weight between 0 and 1
+def smooth(scalars, weight):  # Weight between 0 and 1
     last = scalars[0]  # First value in the plot (first timestep)
     smoothed = list()
     for point in scalars:

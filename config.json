@@ -12,7 +12,7 @@
         "weeks" : 40,
         "batch_size" : 16,
         "window" : 100,
-        "num_steps" : 50,
+        "num_steps" : 60,
         "iters" : 1,
         "weights_dir" : "model/DeepMotorMap",
         "triplet" : "EUR_GBP_USD",
@@ -53,9 +53,6 @@
         "port": 443,
         "ssl": true,
         "pair_whitelist": [
-            "EUR_USD"
-        ],
-        "pair_blacklist": [
             "EUR_USD",
             "GBP_USD",
             "AUD_USD",
@@ -63,6 +60,9 @@
             "USD_CAD",
             "USD_JPY",
             "USD_CHF"
+        ],
+        "pair_blacklist": [
+
         ],
         "triplets" : [
             "EUR_GBP_USD",

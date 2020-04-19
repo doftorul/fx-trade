@@ -42,7 +42,7 @@ class Trainer(object):
         self.dataset = config["train"]["dataset"]
         self.triplet = config["train"].get("triplet","")
 
-    def run(self, load=True):
+    def run(self):
 
         if self.dataset == "arbitrage":
 
@@ -54,7 +54,7 @@ class Trainer(object):
                 "{}_{}".format(currencies[0], currencies[2])  #traded currency
             ]
 
-            if not load:
+            if not os.path.exists(SAVED_ARBITRAGE_DEFAULT_PATH.format(self.triplet)):
                 candles = self.downloader.multi_assets_builder(
                     self.weeks_training, 
                     instruments=instruments, 
@@ -79,7 +79,7 @@ class Trainer(object):
                 )
 
         elif self.dataset == "candles":
-            if not load or not os.path.exists(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments))):
+            if not os.path.exists(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments))):
                 days_from_to = get_time_interval(self.weeks_training)
 
                 candles = []
@@ -126,7 +126,7 @@ class Trainer(object):
                 )
                 
         elif self.dataset == "gramian":
-            if not load or not os.path.exists(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments))):
+            if not os.path.exists(SAVED_CANDLES_DEFAULT_PATH.format("+".join(self.instruments))):
                 days_from_to = get_time_interval(self.weeks_training)
 
                 candles = []

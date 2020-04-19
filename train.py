@@ -7,4 +7,4 @@ logger = logging.getLogger('fxtrade')
 if __name__ == "__main__":
     config = json.load(open("config.json", "r"))
     trainer = Trainer(config)
-    trainer.run(load=True)
+    trainer.run()
