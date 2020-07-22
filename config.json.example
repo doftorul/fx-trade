@@ -1,32 +1,39 @@
 {
-    "max_open_trades": 3,
-    "stake_currency": "BTC",
-    "stake_amount": 0.05,
-    "fiat_display_currency": "USD",
-    "amount_reserve_percent" : 0.05,
-    "dry_run": false,
-    "ticker_interval": "5m",
-    "trailing_stop": false,
-    "trailing_stop_positive": 0.005,
-    "trailing_stop_positive_offset": 0.0051,
-    "minimal_roi": {
-        "40":  0.0,
-        "30":  0.01,
-        "20":  0.02,
-        "0":  0.04
+    
+    "minimal_roi" : 0.05,
+    "max_open_trades": 6,
+    "stake_currency": "EUR",
+    "stake_amount": 0.3,
+    "ticker_interval" : "5m", 
+    "dry_run": true,
+    "train" : {
+        "net" : "DeepMotorMap",
+        "epochs" : 300,
+        "weeks" : 40,
+        "batch_size" : 16,
+        "window" : 100,
+        "num_steps" : 60,
+        "iters" : 1,
+        "weights_dir" : "model/DeepMotorMap",
+        "triplet" : "EUR_GBP_USD",
+        "dataset" : "gramian",
+        "net_params" : {
+            "conv" : true,
+            "optimiser" : "Adam",
+            "policy_lr" : 1e-3,
+            "som" : false
+        }
     },
-    "stoploss": -0.10,
-    "unfilledtimeout": {
-        "buy": 10,
-        "sell": 30
-    },
-    "bid_strategy": {
-        "ask_last_balance": 0.0,
-        "use_order_book": false,
-        "order_book_top": 1,
-        "check_depth_of_market": {
-            "enabled": false,
-            "bids_to_ask_delta": 1
+    "strategy": {
+        "name": "AdvantageActorCritic",
+        "params": {
+            "idle_time" : 5,
+            "granularity": 60,
+            "count" : 51,
+            "features": 9,
+            "actions": 3,
+            "weights_dir" : "model",
+            "policy" : "greedy"
         }
     },
     "ask_strategy":{
@@ -34,49 +41,36 @@
         "order_book_min": 1,
         "order_book_max": 9
     },
-    "order_types": {
-        "buy": "limit",
-        "sell": "limit",
-        "stoploss": "market",
-        "stoploss_on_exchange": "false",
-        "stoploss_on_exchange_interval": 60
-    },
-    "order_time_in_force": {
-        "buy": "gtc",
-        "sell": "gtc",
-    },
-    "pairlist": {
-        "method": "VolumePairList",
-        "config": {
-            "number_assets": 20,
-            "sort_key": "quoteVolume"
-        }
-    },
     "exchange": {
-        "name": "bittrex",
-        "key": "your_exchange_key",
-        "secret": "your_exchange_secret",
-        "ccxt_config": {"enableRateLimit": true},
-        "ccxt_async_config": {
-            "enableRateLimit": false,
-            "aiohttp_trust_env": false
-        },
+        "name": "oanda",
+        "username": "your_oanda_username",
+        "token": "your_oanda_token",
+        "active_account": "your_oanda_active_account",
+        "datetime_format": "RFC3339",
+        "environment" : "practice",
+        "hostname": "api-fxpractice.oanda.com",
+        "streaming_hostname": "stream-fxpractice.oanda.com",
+        "port": 443,
+        "ssl": true,
         "pair_whitelist": [
-            "ETH/BTC",
-            "LTC/BTC",
-            "ETC/BTC",
-            "DASH/BTC",
-            "ZEC/BTC",
-            "XLM/BTC",
-            "NXT/BTC",
-            "POWR/BTC",
-            "ADA/BTC",
-            "XMR/BTC"
+            "EUR_USD",
+            "GBP_USD",
+            "AUD_USD",
+            "NZD_USD",
+            "USD_CAD",
+            "USD_JPY",
+            "USD_CHF"
         ],
         "pair_blacklist": [
-            "DOGE/BTC"
+
         ],
-        "outdated_offset": 5
+        "triplets" : [
+            "EUR_GBP_USD",
+            "EUR_CHF_JPY",
+            "GBP_AUD_CHF",
+            "USD_CAD_CHF",
+            "GBP_NZD_JPY"
+        ]
     },
     "edge": {
         "enabled": false,
@@ -84,31 +78,21 @@
         "calculate_since_number_of_days": 7,
         "capital_available_percentage": 0.5,
         "allowed_risk": 0.01,
-        "stoploss_range_min": -0.01,
-        "stoploss_range_max": -0.1,
-        "stoploss_range_step": -0.01,
+        "stop_loss": 0.005,
+        "take_profit" : 0.005,
         "minimum_winrate": 0.60,
         "minimum_expectancy": 0.20,
-        "min_trade_number": 10,
+        "min_trade_number": 25,
         "max_trade_duration_minute": 1440,
         "remove_pumps": false
     },
-    "experimental": {
-        "use_sell_signal": false,
-        "sell_profit_only": false,
-        "ignore_roi_if_buy_signal": false
-    },
     "telegram": {
         "enabled": true,
-        "token": "your_telegram_token",
-        "chat_id": "your_telegram_chat_id"
+        "token": "your_token_telegram_bot",
+        "chat_id": "your_telegram_account_chat_id"
     },
-    "db_url": "sqlite:///tradesv3.sqlite",
     "initial_state": "running",
-    "forcebuy_enable": false,
     "internals": {
         "process_throttle_secs": 5
-    },
-    "strategy": "DefaultStrategy",
-    "strategy_path": "/some/folder/"
+    }
 }

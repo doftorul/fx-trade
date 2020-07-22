@@ -1,5 +1,4 @@
 # Freqtrade rules
-freqtrade/tests/testdata/*.json
 hyperopt_conf.py
 #config*.json
 *.sqlite
@@ -159,4 +158,4 @@ tensorboard
 runs
 model
 
-config.json
+*.json
