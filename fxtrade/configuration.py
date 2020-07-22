@@ -1,6 +1,9 @@
 """
 This module contains the configuration class
 """
+
+#TODO: delete unused keys from configuration
+
 import json
 import logging
 import os

@@ -2,6 +2,8 @@
 This module contains the argument manager class
 """
 
+#TODO: delete unused arguments
+
 import argparse
 import os
 import re

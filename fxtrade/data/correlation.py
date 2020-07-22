@@ -8,7 +8,7 @@ i = [
             "USD_CHF"
         ]
 from fxtrade.data.factory import Downloader
-api = Downloader(token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
+api = Downloader(token="your_oanda_token_here", environment="practice")
 data = api.multi_assets_builder(weeks=2, instruments=i)
 
 p = data[0].pct_change()

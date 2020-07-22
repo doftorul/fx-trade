@@ -6,7 +6,7 @@ import plotly
 import plotly.graph_objs as go
 
 
-r = Downloader(token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
+r = Downloader(token="your_oanda_token_here", environment="practice")
 candles = r("EUR_USD", 9, 13, save=True, granularity="S30")
 len_data = len(candles)
 window=50

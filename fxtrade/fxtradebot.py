@@ -60,6 +60,7 @@ class ForexTradeBot(object):
         # Init objects
         self.config = config
 
+        #init trainer
         self.trainer = Trainer(self.config)
         #this should be a class that is initialised
         self.strategy = retrieve_strategy(self.config["strategy"]["name"])

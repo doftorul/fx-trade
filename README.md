@@ -1,6 +1,9 @@
-# FX-trade
+# FxTrade
 
-Freqtrade is a ForEx trading bot written in Python. It is designed to support all major exchanges and be controlled via Telegram. It contains backtesting, plotting and money management tools as well as strategy optimization by machine learning.
+FxTrade is a ForEx trading bot written in Python, with the possibility to implement strategies (both classical or based on machine learning) and trade directly on Oanda Broker (both practice or real environment). The bot can be easily integrated with Telegram for monitoring and commanding. It is designed to support all major exchanges and be controlled via Telegram. 
+If you want to contribute to this project, just let me know.
+
+## Main components
 
 ## Run bot
 
@@ -11,7 +14,7 @@ python main.py
 ## Run training manually
 
 ```bash
-python fxtrade/optimize/train.py
+python train.py
 ```
 
 ## Telegram RPC commands
@@ -30,7 +33,6 @@ Telegram is not mandatory. However, this is a great way to control your bot.
 - `/train` [D1 M1 D2 M2 G]' : Starts training on all the whitelist pairs, using data with granularity `G`, and rangin from `D1/M1` to `D2/M2` datetime interval.  
 - `/reload`: Reload configuration file or a new neural network after training.
 
-## Best practices
 
 ## ToDos
 

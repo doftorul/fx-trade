@@ -1,5 +1,5 @@
 # pragma pylint: disable=too-few-public-methods
-
+#TODO: delete unused keys
 """
 bot constants
 """

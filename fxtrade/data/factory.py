@@ -10,7 +10,6 @@ import logging
 import numpy as np
 logger = logging.getLogger(__name__)
 
-# api = Downloader(token="39e41febacb7f696aff65ba23713a553-112e0e75a1018a1ffff575cc1c28d5b0", environment="practice")
 
 SAVEPATH="candles"
 
