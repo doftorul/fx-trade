@@ -1,9 +1,23 @@
 # FxTrade
 
 FxTrade is a ForEx trading bot written in Python, with the possibility to implement strategies (both classical or based on machine learning) and trade directly on Oanda Broker (both practice or real environment). The bot can be easily integrated with Telegram for monitoring and commanding. It is designed to support all major exchanges and be controlled via Telegram. 
-If you want to contribute to this project, just let me know.
+
+**If you want to know more, discuss about several machine learning approaches or contribute to this project, contact me.**
 
 ## Main components
+
+Modules inside `fxtrade/`:
+
+- `comm`: define the RPC messaging channel (telegram) and commands
+- `data`: downloader class to download candles from exchange and utils to preprocess data and get technical indicators
+- `exchange`: define the Broker class, following the same structure of the already presente Oanda Exchange class
+- `optimize`: all you need for running machine learning and reinforcement learning experiment, with different datasets paradigms to feed data into networks. `agents/` folder contains deep learning strategy, such as LSTMs and Actor-Critic architectures, and are written in pytorch. `environment.py` defines classes used to process data to be fed into networks, depending on what strategy you use (ML or RL).
+- `strategy`: contains strategies (Classical or ML/RL) effectively used within the fxtradebot. If you trained a network defined in `optimize/agents`, you need a wrapper within `strategy/neural.py` for that network in order to load the weights and perform inference.
+- `fxtradebot.py`: contains the class `ForexTradeBot`, the main component responsible of: fetching new candles, perform actions (buy, sell, hold), store statistics to an sqlite database, communicate with telegram rpc, communicate with Broker, start new training of networks if prompted from telegram. 
+
+## Before starting
+
+Insert your Oanda and Telegram keys within a `config.json` file (just copy and edit info within `config.json.example`)
 
 ## Run bot
 
@@ -11,15 +25,19 @@ If you want to contribute to this project, just let me know.
 python main.py
 ```
 
+Then control the operations through Telegram. Training can also be run via Telegram if properly configured.
+
 ## Run training manually
 
 ```bash
 python train.py
 ```
 
+Another training script is available: `train_arbitrage.py`, and this starts training following arbitrage strategy on currency triplets.
+
 ## Telegram RPC commands
 
-Telegram is not mandatory. However, this is a great way to control your bot. 
+Telegram is not mandatory. However, this is a great way to control your bot.
 
 - `/start`: Starts the trader
 - `/stop`: Stops the trader
@@ -33,51 +51,20 @@ Telegram is not mandatory. However, this is a great way to control your bot.
 - `/train` [D1 M1 D2 M2 G]' : Starts training on all the whitelist pairs, using data with granularity `G`, and rangin from `D1/M1` to `D2/M2` datetime interval.  
 - `/reload`: Reload configuration file or a new neural network after training.
 
+### daily report
+![results](images/daily_report.png)
 
-## ToDos
+### wait for new candles and act
+![results](images/idle_and_act.png)
 
-- [x] beautify logging telegram
-- [x] connect telegram commands with Oanda api
-- [x] Parallelize currency processes
-- [x] Define MACD strategies and other with techical indicators
-- [x] Add more validation methods for stategies
-- [x] ML/TL training or statistical modeling
-- [ ] add training option in telegram, and automate neural nets reloading process
-- [ ] try to use just one network (strategy) object if it is shared between pairs
-- [ ] Dockerfile and deployment on server
-- [ ] Default configurations and constants
+### see open trades
+![results](images/open_trades.png)
 
-2nd stage
-- [ ] Study RL for Edge: This page explains how to use Edge Positioning module in your bot in order to enter into a trade only if the trade has a reasonable win rate and risk reward ratio, and consequently adjust your position size and stoploss. https://www.freqtrade.io/en/latest/edge/
-
-
-## Considerations
-
-- Optimizing by minimizing cost cross-entropy with target labels works (i.e. predicting price direction) `neural/train_logistic_regression_v1.py, lstm_v1, cnn_v1`, Optimizing by maximizing average return without target labels does not work (i.e. predicting optimal positions allocation). Because of unstable / uneven gradients maybe..?
-- Learning rate does make a big difference. Training logistic regression with really small lr converges much better. It's probably a good idea to decrease lr again after a number of iterations.
-- Results are terribly (!!!) dependent on randomization. My guess is, because the surface of objective function is very rough, each random initialization of weights and random pick of first training batches leads to new local optima. Therefore, to find a really good fit each model should be trained multiple times.
-- Sometimes cost function is jumping up and down like crazy because batches of input are not homogenious (?) (the set of 'rules' by which objective function is optimized changes dramatically from batch to batch). Nonetheless, it slowly moves towards some kind of optima (not always! it might take a few tries of training from the beginning).
-- Adjusting hyper-parameters is hard but it seems it might be worth the effort
-
-Training models V2
-This time the idea was to:
-
-- Create dozens of features (ta-lib indicators) of varying periods. Roughly there is 80 indicators, some of which can vary in time-periods, so all-in-all it is reasonable to create ~250 features.
-- Perform PCA to simplify everything and get rid of similar and unimportant highly correlated features.
-- Experiment with polynomials.
-
-
-Conclusions:
-- Given only price and volume data, predicting price direction is not really accurate.
-- For predictions to be reasonable more features are needed. For instance sentiment data, other macroeconomic data or whatever.
-- If not only possible profitable strategy would be, to use other models like position sizing and carefully entering trades to decrease total transaction costs.
-
-
-## On training sessions
+## Training the Advantage Actor Critic in a Reinforcement Learning scenario (some results)
 
 ### 1st experiment: Batched Episodic Advantage GRU Actor Critic
 
-20200331_112831
+tag: `20200331_112831`
 
 Batch 32, total batches 216, one currency-pair EUR_USD, time per epoch: 2'
 
@@ -88,7 +75,7 @@ With one currency pair, 6903 50-step time-series featured (from monday midnight 
 
 ### 2nd experiment: One week Batched Episodic Advantage GRU Actor Critic
 
-20200331_125414
+tag: `20200331_125414`
 
 Batch 32, total batches 1502, all the currency-pairs listed in configs , time per epoch: 11'
 Penalties for holding position. *So far the best method with highest gain.*
@@ -97,7 +84,7 @@ With all the currency pair over the past week, granularity of 1 minute, the opti
 
 ### 2nd experiment: 2 weeks Batched Episodic Advantage GRU Actor Critic
 
-20200331_162432
+tag: `20200331_162432`
 
 Batch 32, total batches 3005, all the currency-pairs listed in configs , time per epoch: 25'
 Penalties for holding position. *So far the best method with highest gain.*
@@ -106,20 +93,30 @@ With all the currency pair over the past 2 weeks, granularity of 1 minute, the o
 
 ### 2nd-B experiment: Batched Episodic Advantage GRU Actor Critic (No holding penalty)
 
-20200331_125414
+tag: `20200331_125414`
 
 Batch 32, total batches 1502, all the currency-pairs listed in configs , time per epoch: 11'
 No penalties for holding position. No relevant improvements.
 
 ### 2nd-C experiment: 2 weeks Batched Episodic Advantage GRU (small) Actor Critic
 
-20200331_170531
+tag: `20200331_170531`
 
 Batch 32, total batches 3005, all the currency-pairs listed in configs , time per epoch: '
 Penalties for holding position. Good but no real improvements.
 
-### 3rd experiment: Batched Episodic Advantage Convolutional Actor Critic
+![results](images/results.png)
 
-### 4th experiment: Environmental Double GRU DQN 
 
-### 5th experiment: Environmental Double Convolutional DQN 
+## To Do
+
+- [x] beautify logging telegram
+- [x] connect telegram commands with Oanda api
+- [x] Parallelize currency processes
+- [x] Define MACD strategies and other with techical indicators
+- [x] Add more validation methods for stategies
+- [x] ML/TL training or statistical modeling
+- [x] add training option in telegram
+- [ ] automate neural nets reloading process
+- [ ] Remove unused default configurations and constants
+- [ ] Dockerfile and deployment on server
