@@ -158,3 +158,5 @@ fxtrade/data/arbitrage
 tensorboard
 runs
 model
+
+config.json
